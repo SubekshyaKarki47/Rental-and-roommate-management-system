@@ -1,0 +1,39 @@
+from rest_framework import generics, permissions, status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from django.shortcuts import get_object_or_404
+
+from apps.notifications.models import Notification
+from apps.notifications.serializers import NotificationSerializer
+
+
+class NotificationListView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = NotificationSerializer
+
+    def get_queryset(self):
+        return Notification.objects.filter(recipient=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        unread_count = queryset.filter(is_read=False).count()
+        serializer = self.get_serializer(queryset[:30], many=True)
+        return Response({
+            'unread_count': unread_count,
+            'results': serializer.data
+        })
+
+
+class NotificationMarkReadView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request, pk=None):
+        if pk:
+            notif = get_object_or_404(Notification, id=pk, recipient=request.user)
+            notif.is_read = True
+            notif.save()
+            return Response({"detail": "Notification marked as read."})
+        else:
+            # Mark all as read
+            Notification.objects.filter(recipient=request.user, is_read=False).update(is_read=True)
+            return Response({"detail": "All notifications marked as read."})
