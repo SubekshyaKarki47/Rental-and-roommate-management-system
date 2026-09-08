@@ -6,6 +6,7 @@ from .views import (
     CurrentUserView,
     TenantOnboardingView,
     SwitchRoleView,
+    ForgotPasswordView,
 )
 
 urlpatterns = [
@@ -15,4 +16,5 @@ urlpatterns = [
     path('me/', CurrentUserView.as_view(), name='current_user'),
     path('onboarding/', TenantOnboardingView.as_view(), name='tenant_onboarding'),
     path('switch-role/', SwitchRoleView.as_view(), name='switch_role'),
+    path('forgot-password/', ForgotPasswordView.as_view(), name='forgot_password'),
 ]

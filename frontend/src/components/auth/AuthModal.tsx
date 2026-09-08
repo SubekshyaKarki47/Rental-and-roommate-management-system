@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { authService } from '../../services/api';
 import {
   X,
   Home,
@@ -9,8 +10,8 @@ import {
   ArrowRight,
   ArrowLeft,
   Check,
-  ShieldCheck,
   AlertCircle,
+  KeyRound,
 } from 'lucide-react';
 import './AuthModal.css';
 
@@ -30,6 +31,11 @@ export const AuthModal: React.FC = () => {
   const [lastName, setLastName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
 
+  // Forgot Password Fields
+  const [newPassword, setNewPassword] = useState('');
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
+  const [resetSuccess, setResetSuccess] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -39,12 +45,18 @@ export const AuthModal: React.FC = () => {
     setShowAuthModal(false);
     setStep(1);
     setError(null);
+    setResetSuccess(false);
+    setNewPassword('');
+    setNewPasswordConfirm('');
   };
 
-  const handleTabChange = (tab: 'login' | 'register') => {
+  const handleTabChange = (tab: 'login' | 'register' | 'forgot-password') => {
     setAuthModalTab(tab);
     setStep(1);
     setError(null);
+    setResetSuccess(false);
+    setNewPassword('');
+    setNewPasswordConfirm('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -90,20 +102,43 @@ export const AuthModal: React.FC = () => {
     }
   };
 
-  const fillDemoCredentials = async (type: 'tenant' | 'landlord' | 'admin') => {
+  const handleResetPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError(null);
+    setResetSuccess(false);
+
+    if (!email) {
+      setError('Please enter your account email address.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setError('New password must be at least 6 characters long.');
+      return;
+    }
+    if (newPassword !== newPasswordConfirm) {
+      setError('Passwords do not match.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      if (type === 'tenant') {
-        await login({ email: 'anuj.dahal@gmail.com', password: 'Password123!' });
-      } else if (type === 'landlord') {
-        await login({ email: 'suresh.shrestha@nepalrent.com', password: 'Password123!' });
-      } else if (type === 'admin') {
-        await login({ email: 'admin@roommatehub.com', password: 'AdminPassword123!' });
-      }
-      handleClose();
+      await authService.forgotPassword({
+        email,
+        new_password: newPassword,
+        confirm_password: newPasswordConfirm,
+      });
+      setResetSuccess(true);
+      setPassword(newPassword);
     } catch (err: any) {
-      setError('Could not log in with demo account. Ensure backend is running.');
+      const errMsg =
+        err.response?.data?.email?.[0] ||
+        err.response?.data?.confirm_password?.[0] ||
+        err.response?.data?.new_password?.[0] ||
+        err.response?.data?.detail ||
+        err.response?.data?.error ||
+        err.message ||
+        'Failed to reset password. Please verify your email.';
+      setError(errMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -475,9 +510,18 @@ export const AuthModal: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Password
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
+                      Password
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => handleTabChange('forgot-password')}
+                      className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
                   <input
                     type="password"
                     required
@@ -491,7 +535,7 @@ export const AuthModal: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-sm rounded-xl transition shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2"
+                  className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-sm rounded-xl transition shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {isSubmitting ? (
                     <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
@@ -504,48 +548,137 @@ export const AuthModal: React.FC = () => {
                 </button>
               </form>
 
-              {/* Instant Demo Logins */}
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                  <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
-                  <span>Quick Demo Logins</span>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => fillDemoCredentials('tenant')}
-                    disabled={isSubmitting}
-                    className="py-1.5 px-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 transition text-center"
-                  >
-                    🧑 Tenant
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fillDemoCredentials('landlord')}
-                    disabled={isSubmitting}
-                    className="py-1.5 px-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 transition text-center"
-                  >
-                    🏢 Landlord
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fillDemoCredentials('admin')}
-                    disabled={isSubmitting}
-                    className="py-1.5 px-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 transition text-center"
-                  >
-                    🛡️ Admin
-                  </button>
-                </div>
-              </div>
-
               <p className="text-center text-xs text-slate-500 dark:text-slate-400 pt-2">
                 Don't have an account?{' '}
                 <button
                   type="button"
                   onClick={() => handleTabChange('register')}
-                  className="font-semibold text-blue-600 dark:text-blue-400 hover:underline ml-1"
+                  className="font-semibold text-blue-600 dark:text-blue-400 hover:underline ml-1 cursor-pointer"
                 >
                   Sign up
+                </button>
+              </p>
+            </div>
+          )}
+
+          {/* FORGOT / RESET PASSWORD FLOW */}
+          {authModalTab === 'forgot-password' && (
+            <div className="w-full space-y-4 animate-fadeIn">
+              <div>
+                <button
+                  type="button"
+                  onClick={() => handleTabChange('login')}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 mb-2 transition cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Back to Sign In</span>
+                </button>
+                <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  Account Recovery
+                </span>
+                <h3 className="text-2xl font-bold font-display text-slate-900 dark:text-white mt-1">
+                  Reset your password
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                  Enter your email and set a new password anytime.
+                </p>
+              </div>
+
+              {resetSuccess ? (
+                <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs space-y-3 animate-fadeIn">
+                  <div className="flex items-center gap-2 font-bold text-sm text-emerald-700 dark:text-emerald-300">
+                    <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <span>Password updated successfully!</span>
+                  </div>
+                  <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Your password has been changed. You can now sign in with your new password.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleTabChange('login')}
+                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl transition text-center shadow-md shadow-blue-500/20 cursor-pointer"
+                  >
+                    Proceed to Sign In
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {error && (
+                    <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-700 dark:text-red-300 text-xs flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{error}</span>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleResetPasswordSubmit} className="space-y-3.5">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        Registered Email Address
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        New Password
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Minimum 6 characters"
+                        className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        Confirm New Password
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        value={newPasswordConfirm}
+                        onChange={(e) => setNewPasswordConfirm(e.target.value)}
+                        placeholder="Re-enter new password"
+                        className="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-sm rounded-xl transition shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      {isSubmitting ? (
+                        <span className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                      ) : (
+                        <>
+                          <KeyRound className="w-4 h-4" />
+                          <span>Update Password</span>
+                        </>
+                      )}
+                    </button>
+                  </form>
+                </>
+              )}
+
+              <p className="text-center text-xs text-slate-500 dark:text-slate-400 pt-1">
+                Remember your password?{' '}
+                <button
+                  type="button"
+                  onClick={() => handleTabChange('login')}
+                  className="font-semibold text-blue-600 dark:text-blue-400 hover:underline ml-1 cursor-pointer"
+                >
+                  Sign in
                 </button>
               </p>
             </div>

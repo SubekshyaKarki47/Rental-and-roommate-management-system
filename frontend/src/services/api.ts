@@ -76,5 +76,10 @@ export const authService = {
   async switchRole(targetRole: 'TENANT' | 'LANDLORD'): Promise<any> {
     const res = await api.post('/api/auth/switch-role/', { role: targetRole });
     return res.data;
+  },
+
+  async forgotPassword(data: { email: string; new_password: string; confirm_password: string }): Promise<{ message: string; email: string }> {
+    const res = await api.post('/api/auth/forgot-password/', data);
+    return res.data;
   }
 };

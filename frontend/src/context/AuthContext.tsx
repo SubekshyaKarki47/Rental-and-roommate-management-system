@@ -12,8 +12,8 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
   showAuthModal: boolean;
   setShowAuthModal: (open: boolean) => void;
-  authModalTab: 'login' | 'register';
-  setAuthModalTab: (tab: 'login' | 'register') => void;
+  authModalTab: 'login' | 'register' | 'forgot-password';
+  setAuthModalTab: (tab: 'login' | 'register' | 'forgot-password') => void;
   showOnboardingModal: boolean;
   setShowOnboardingModal: (open: boolean) => void;
 }
@@ -27,7 +27,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
-  const [authModalTab, setAuthModalTab] = useState<'login' | 'register'>('login');
+  const [authModalTab, setAuthModalTab] = useState<'login' | 'register' | 'forgot-password'>('login');
   const [showOnboardingModal, setShowOnboardingModal] = useState<boolean>(false);
 
   const syncAuthData = (data: AuthResponse) => {

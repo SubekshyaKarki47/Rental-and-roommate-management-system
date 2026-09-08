@@ -12,6 +12,7 @@ from .serializers import (
     TenantOnboardingSerializer,
     TenantProfileSerializer,
     LandlordProfileSerializer,
+    ForgotPasswordSerializer,
 )
 from .permissions import IsTenant
 
@@ -118,3 +119,23 @@ class SwitchRoleView(APIView):
             'access': str(refresh.access_token),
             'refresh': str(refresh),
         })
+
+
+class ForgotPasswordView(APIView):
+    """Reset user password using email verification."""
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = ForgotPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+        new_password = serializer.validated_data['new_password']
+        
+        user.set_password(new_password)
+        user.save()
+
+        return Response({
+            'message': 'Password has been reset successfully. You can now log in with your new password.',
+            'email': user.email
+        }, status=status.HTTP_200_OK)
+
