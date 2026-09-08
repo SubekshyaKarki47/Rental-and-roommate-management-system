@@ -51,6 +51,8 @@ class PropertyListSerializer(serializers.ModelSerializer):
     primary_image = serializers.ReadOnlyField(source='primary_image_url')
     images = PropertyImageSerializer(many=True, read_only=True)
     is_favorited = serializers.SerializerMethodField()
+    current_tenant = serializers.SerializerMethodField()
+    lease_expiry = serializers.SerializerMethodField()
 
     class Meta:
         model = Property
@@ -62,7 +64,7 @@ class PropertyListSerializer(serializers.ModelSerializer):
             'has_kitchen', 'has_washing_machine', 'has_balcony', 'has_elevator',
             'pets_allowed', 'smoking_allowed', 'gender_preference',
             'status', 'is_verified', 'is_featured', 'rating', 'total_reviews',
-            'primary_image', 'images', 'is_favorited', 'created_at'
+            'primary_image', 'images', 'is_favorited', 'current_tenant', 'lease_expiry', 'created_at'
         ]
 
     def get_is_favorited(self, obj):
@@ -70,6 +72,24 @@ class PropertyListSerializer(serializers.ModelSerializer):
         if user and user.is_authenticated:
             return PropertyFavorite.objects.filter(user=user, property=obj).exists()
         return False
+
+    def get_current_tenant(self, obj):
+        lease = getattr(obj, 'leases', None) and obj.leases.filter(status='ACTIVE').select_related('tenant').first()
+        if lease and lease.tenant:
+            return lease.tenant.get_full_name() or lease.tenant.email
+        approved_app = getattr(obj, 'applications', None) and obj.applications.filter(status='APPROVED').select_related('tenant').first()
+        if approved_app and approved_app.tenant:
+            return approved_app.tenant.get_full_name() or approved_app.tenant.email
+        return None
+
+    def get_lease_expiry(self, obj):
+        lease = getattr(obj, 'leases', None) and obj.leases.filter(status='ACTIVE').first()
+        if lease and lease.end_date:
+            return lease.end_date.strftime('%b %Y')
+        approved_app = getattr(obj, 'applications', None) and obj.applications.filter(status='APPROVED').first()
+        if approved_app and approved_app.move_in_date:
+            return f"From {approved_app.move_in_date.strftime('%b %d, %Y')}"
+        return None
 
 
 class PropertyDetailSerializer(serializers.ModelSerializer):
@@ -102,7 +122,7 @@ class PropertyDetailSerializer(serializers.ModelSerializer):
 
 class PropertyCreateUpdateSerializer(serializers.ModelSerializer):
     image_urls = serializers.ListField(
-        child=serializers.URLField(), required=False, write_only=True
+        child=serializers.CharField(), required=False, write_only=True
     )
 
     class Meta:
@@ -116,20 +136,70 @@ class PropertyCreateUpdateSerializer(serializers.ModelSerializer):
             'has_wifi', 'has_parking', 'has_24h_water', 'has_electricity_backup',
             'has_kitchen', 'has_washing_machine', 'has_balcony', 'has_elevator',
             'has_cctv', 'pets_allowed', 'smoking_allowed', 'gender_preference',
-            'image_urls'
+            'status', 'image_urls'
         ]
 
     def create(self, validated_data):
+        import base64
+        import uuid
+        from django.core.files.base import ContentFile
+
         image_urls = validated_data.pop('image_urls', [])
-        user = self.context['request'].user
+        request = self.context.get('request')
+        user = request.user if request else None
         property_obj = Property.objects.create(landlord=user, **validated_data)
 
-        for i, url in enumerate(image_urls):
+        # 1. Handle direct file uploads (JPEG, PNG, SVG, WEBP) from request.FILES
+        uploaded_files = []
+        if request and request.FILES:
+            uploaded_files = (
+                request.FILES.getlist('images')
+                or request.FILES.getlist('images[]')
+                or request.FILES.getlist('uploaded_images')
+                or request.FILES.getlist('photos')
+            )
+            for i, img_file in enumerate(uploaded_files):
+                PropertyImage.objects.create(
+                    property=property_obj,
+                    image=img_file,
+                    is_primary=(i == 0),
+                    order=i
+                )
+
+        # 2. Handle Data URLs (base64) or standard URLs
+        existing_count = property_obj.images.count()
+        for i, item_str in enumerate(image_urls):
+            is_primary = (existing_count == 0 and i == 0)
+            if item_str.startswith('data:'):
+                try:
+                    format_header, imgstr = item_str.split(';base64,')
+                    ext = 'jpg'
+                    if 'svg' in format_header:
+                        ext = 'svg'
+                    elif 'png' in format_header:
+                        ext = 'png'
+                    elif 'jpeg' in format_header or 'jpg' in format_header:
+                        ext = 'jpg'
+                    elif 'webp' in format_header:
+                        ext = 'webp'
+
+                    filename = f"prop_{property_obj.id}_{uuid.uuid4().hex[:8]}.{ext}"
+                    content_file = ContentFile(base64.b64decode(imgstr), name=filename)
+                    PropertyImage.objects.create(
+                        property=property_obj,
+                        image=content_file,
+                        is_primary=is_primary,
+                        order=existing_count + i
+                    )
+                    continue
+                except Exception:
+                    pass
+
             PropertyImage.objects.create(
                 property=property_obj,
-                image_url=url,
-                is_primary=(i == 0),
-                order=i
+                image_url=item_str,
+                is_primary=is_primary,
+                order=existing_count + i
             )
 
         return property_obj

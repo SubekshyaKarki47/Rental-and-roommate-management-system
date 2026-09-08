@@ -39,6 +39,7 @@ class RegisterView(generics.CreateAPIView):
         refresh['role'] = user.role
         refresh['first_name'] = user.first_name
         refresh['last_name'] = user.last_name
+        refresh['full_name'] = user.full_name
         refresh['is_verified'] = user.is_verified
 
         user_data = UserSerializer(user).data

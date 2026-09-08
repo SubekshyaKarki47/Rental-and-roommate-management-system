@@ -44,7 +44,24 @@ class MaintenanceListCreateView(generics.ListCreateAPIView):
         return qs
 
 
-class MaintenanceDetailView(generics.RetrieveUpdateAPIView):
+    def perform_create(self, serializer):
+        req = serializer.save()
+        # Automatically generate a notification for the property's landlord
+        try:
+            from apps.notifications.models import Notification
+            tenant_name = req.tenant.get_full_name() or req.tenant.email
+            Notification.objects.create(
+                recipient=req.property.landlord,
+                title=f"Maintenance Request: {req.title}",
+                message=f"{tenant_name} reported an issue ({req.category}) for {req.property.title}.",
+                category=Notification.Category.MAINTENANCE,
+                action_url="/landlord/maintenance"
+            )
+        except Exception:
+            pass
+
+
+class MaintenanceDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_serializer_class(self):
@@ -65,6 +82,19 @@ class MaintenanceDetailView(generics.RetrieveUpdateAPIView):
         if req.status == MaintenanceRequest.Status.RESOLVED and not req.resolved_at:
             req.resolved_at = timezone.now()
             req.save()
+
+        # Generate status notification for tenant
+        try:
+            from apps.notifications.models import Notification
+            Notification.objects.create(
+                recipient=req.tenant,
+                title=f"Maintenance Request #{req.id} {req.status}",
+                message=f"Your repair request '{req.title}' for {req.property.title} was marked as {req.status}.",
+                category=Notification.Category.MAINTENANCE,
+                action_url="/tenant/maintenance"
+            )
+        except Exception:
+            pass
 
 
 class MaintenanceAddCommentView(APIView):

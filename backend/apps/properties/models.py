@@ -138,7 +138,7 @@ class Property(models.Model):
 
 
 class PropertyImage(models.Model):
-    """Property gallery images supporting both URL and direct file uploads."""
+    """Property gallery images supporting both URL and direct file uploads (JPEG, PNG, SVG, WEBP)."""
 
     property = models.ForeignKey(
         Property,
@@ -146,7 +146,7 @@ class PropertyImage(models.Model):
         related_name='images'
     )
     image_url = models.URLField(max_length=600, blank=True)
-    image = models.ImageField(upload_to='properties/', blank=True, null=True)
+    image = models.FileField(upload_to='properties/', blank=True, null=True)
     caption = models.CharField(max_length=150, blank=True)
     is_primary = models.BooleanField(default=False)
     order = models.PositiveSmallIntegerField(default=0)
@@ -161,7 +161,10 @@ class PropertyImage(models.Model):
     @builtin_property
     def display_url(self):
         if self.image:
-            return self.image.url
+            url = self.image.url
+            if url.startswith('/'):
+                return f"http://localhost:8000{url}"
+            return url
         return self.image_url
 
 

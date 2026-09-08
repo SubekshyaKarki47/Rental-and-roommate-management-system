@@ -14,6 +14,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['role'] = user.role
         token['first_name'] = user.first_name
         token['last_name'] = user.last_name
+        token['full_name'] = user.full_name
         token['is_verified'] = user.is_verified
         return token
 
@@ -25,7 +26,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             'role': self.user.role,
             'first_name': self.user.first_name,
             'last_name': self.user.last_name,
+            'full_name': self.user.full_name,
             'phone_number': self.user.phone_number,
+            'avatar': self.user.avatar.url if self.user.avatar else None,
             'is_verified': self.user.is_verified,
             'has_completed_onboarding': getattr(
                 getattr(self.user, 'tenant_profile', None), 'is_onboarding_completed', False
@@ -60,11 +63,12 @@ class LandlordProfileSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     tenant_profile = TenantProfileSerializer(read_only=True)
     landlord_profile = LandlordProfileSerializer(read_only=True)
+    full_name = serializers.CharField(read_only=True)
 
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'first_name', 'last_name', 'role',
+            'id', 'email', 'first_name', 'last_name', 'full_name', 'role',
             'phone_number', 'avatar', 'is_verified', 'tenant_profile',
             'landlord_profile', 'created_at'
         ]

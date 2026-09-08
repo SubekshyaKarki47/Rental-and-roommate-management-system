@@ -90,6 +90,33 @@ class ApplicationStatusUpdateView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
+        # When an application is approved by the landlord, mark the property as RENTED
+        # and record/activate a lease for this tenant
+        if app.status == RentalApplication.Status.APPROVED:
+            prop = app.property
+            prop.status = Property.Status.RENTED
+            prop.save(update_fields=['status'])
+
+            try:
+                import datetime
+                from apps.rentals.models import Lease
+                start_date = app.move_in_date or datetime.date.today()
+                end_date = start_date + datetime.timedelta(days=365)
+                Lease.objects.update_or_create(
+                    property=prop,
+                    tenant=app.tenant,
+                    defaults={
+                        'landlord': prop.landlord,
+                        'monthly_rent': prop.monthly_rent,
+                        'security_deposit': prop.security_deposit,
+                        'start_date': start_date,
+                        'end_date': end_date,
+                        'status': Lease.Status.ACTIVE,
+                    }
+                )
+            except Exception:
+                pass
+
         # Return full updated application
         full_serializer = RentalApplicationSerializer(app)
         return Response(full_serializer.data)

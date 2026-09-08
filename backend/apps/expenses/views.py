@@ -1,8 +1,10 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.exceptions import PermissionDenied
 from django.db.models import Sum, Q
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from decimal import Decimal
 from collections import defaultdict
 
@@ -44,7 +46,7 @@ class ExpenseDetailView(generics.RetrieveDestroyAPIView):
 
     def perform_destroy(self, instance):
         if instance.paid_by != self.request.user and not self.request.user.is_staff:
-            return Response({"detail": "Only the expense payer can delete this expense."}, status=status.HTTP_403_FORBIDDEN)
+            raise PermissionDenied("Only the expense payer can delete this expense.")
         instance.delete()
 
 
@@ -128,3 +130,32 @@ class SettleUpView(generics.CreateAPIView):
             'detail': f"Settled NPR {settlement.amount} with {settlement.receiver.full_name}.",
             'settlement': SettlementSerializer(settlement).data
         }, status=status.HTTP_201_CREATED)
+
+
+class ExpenseParticipantSettleView(APIView):
+    """Directly mark an expense participant's share as settled."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        participant = get_object_or_404(ExpenseParticipant, pk=pk)
+        if request.user != participant.expense.paid_by and request.user != participant.user and not request.user.is_staff:
+            raise PermissionDenied("You do not have permission to settle this participant share.")
+
+        participant.is_settled = True
+        participant.settled_at = timezone.now()
+        participant.save()
+
+        Settlement.objects.create(
+            payer=participant.user,
+            receiver=participant.expense.paid_by,
+            amount=participant.share_amount,
+            method='CASH',
+            notes=f"Settled split share for '{participant.expense.title}'"
+        )
+
+        return Response({
+            'detail': f"Marked share for {participant.user.full_name} as settled.",
+            'participant_id': participant.id,
+            'is_settled': True
+        })
+
