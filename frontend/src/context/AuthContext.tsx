@@ -6,14 +6,17 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (credentials: { email: string; password: string }) => Promise<void>;
-  register: (data: Record<string, any>) => Promise<void>;
+  login: (credentials: { email: string; password: string }) => Promise<User>;
+  register: (data: Record<string, any>) => Promise<User>;
   logout: () => void;
   refreshUser: () => Promise<void>;
   showAuthModal: boolean;
   setShowAuthModal: (open: boolean) => void;
   authModalTab: 'login' | 'register' | 'forgot-password';
   setAuthModalTab: (tab: 'login' | 'register' | 'forgot-password') => void;
+  initialIntent: 'place' | 'roommate' | 'both' | 'landlord';
+  setInitialIntent: (intent: 'place' | 'roommate' | 'both' | 'landlord') => void;
+  openAuthModal: (tab: 'login' | 'register' | 'forgot-password', intent?: 'place' | 'roommate' | 'both' | 'landlord') => void;
   showOnboardingModal: boolean;
   setShowOnboardingModal: (open: boolean) => void;
 }
@@ -28,18 +31,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [authModalTab, setAuthModalTab] = useState<'login' | 'register' | 'forgot-password'>('login');
+  const [initialIntent, setInitialIntent] = useState<'place' | 'roommate' | 'both' | 'landlord'>(() => {
+    return (localStorage.getItem('user_intent') as any) || 'place';
+  });
   const [showOnboardingModal, setShowOnboardingModal] = useState<boolean>(false);
 
-  const syncAuthData = (data: AuthResponse) => {
+  const openAuthModal = (
+    tab: 'login' | 'register' | 'forgot-password',
+    intent?: 'place' | 'roommate' | 'both' | 'landlord'
+  ) => {
+    if (intent) {
+      setInitialIntent(intent);
+      localStorage.setItem('user_intent', intent);
+    }
+    setAuthModalTab(tab);
+    setShowAuthModal(true);
+  };
+
+  const syncAuthData = (data: AuthResponse): User => {
+    const savedIntent = localStorage.getItem('user_intent') || initialIntent;
+    const userWithIntent: User = {
+      ...data.user,
+      intent: (savedIntent as any) || data.user.intent,
+    };
     localStorage.setItem('access_token', data.access);
     localStorage.setItem('refresh_token', data.refresh);
-    localStorage.setItem('current_user', JSON.stringify(data.user));
-    setUser(data.user);
-
-    // If user is tenant and has not completed onboarding, trigger onboarding modal
-    if (data.user.role === 'TENANT' && !data.user.has_completed_onboarding) {
-      setShowOnboardingModal(true);
-    }
+    localStorage.setItem('current_user', JSON.stringify(userWithIntent));
+    setUser(userWithIntent);
+    return userWithIntent;
   };
 
   const refreshUser = async () => {
@@ -51,12 +70,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       const userData = await authService.getCurrentUser();
-      setUser(userData);
-      localStorage.setItem('current_user', JSON.stringify(userData));
-
-      if (userData.role === 'TENANT' && !userData.tenant_profile?.is_onboarding_completed) {
-        setShowOnboardingModal(true);
-      }
+      const savedIntent = localStorage.getItem('user_intent') || initialIntent;
+      const userWithIntent = {
+        ...userData,
+        intent: (savedIntent as any) || userData.intent,
+      };
+      setUser(userWithIntent);
+      localStorage.setItem('current_user', JSON.stringify(userWithIntent));
     } catch (err) {
       setUser(null);
       localStorage.removeItem('current_user');
@@ -78,23 +98,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => window.removeEventListener('auth:logout', handleLogout);
   }, []);
 
-  const login = async (credentials: { email: string; password: string }) => {
+  const login = async (credentials: { email: string; password: string }): Promise<User> => {
     const data = await authService.login(credentials);
-    syncAuthData(data);
+    const userWithIntent = syncAuthData(data);
     setShowAuthModal(false);
+    return userWithIntent;
   };
 
-  const register = async (formData: Record<string, any>) => {
+  const register = async (formData: Record<string, any>): Promise<User> => {
     const data = await authService.register(formData);
-    syncAuthData(data);
+    const userWithIntent = syncAuthData(data);
     setShowAuthModal(false);
+    return userWithIntent;
   };
 
   const logout = () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('current_user');
+    localStorage.removeItem('user_intent');
     setUser(null);
+    window.dispatchEvent(new Event('auth:logout'));
   };
 
   return (
@@ -111,6 +135,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setShowAuthModal,
         authModalTab,
         setAuthModalTab,
+        initialIntent,
+        setInitialIntent,
+        openAuthModal,
         showOnboardingModal,
         setShowOnboardingModal,
       }}

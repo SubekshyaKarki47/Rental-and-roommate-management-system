@@ -90,12 +90,18 @@ export const expenseService = {
   },
 
   async settleUp(data: {
+    payer?: number;
     receiver: number;
     amount: number;
     method?: 'ESEWA' | 'KHALTI' | 'BANK' | 'CASH';
     notes?: string;
   }): Promise<any> {
     const res = await api.post('/api/expenses/settle/', data);
+    return res.data;
+  },
+
+  async settleParticipant(participantId: number): Promise<any> {
+    const res = await api.post(`/api/expenses/participants/${participantId}/settle/`);
     return res.data;
   },
 };

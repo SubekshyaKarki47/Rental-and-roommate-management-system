@@ -1,12 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import type { Property } from '../../types/property';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 import {
   Home,
-  Building2,
   Building,
   Users,
   ClipboardList,
@@ -24,16 +21,17 @@ import {
   Moon,
   ChevronRight,
   ArrowRight,
-  MapPin,
-  Calendar,
   DollarSign,
   Heart,
   Star,
-  Sparkles,
   LogOut,
-  SlidersHorizontal,
+  CheckCircle2,
 } from 'lucide-react';
 import './TenantDashboard.css';
+import { rentalService, type Lease } from '../../services/rentalService';
+import { expenseService } from '../../services/expenseService';
+import { applicationService, type RentalApplication } from '../../services/applicationService';
+import { propertyService } from '../../services/propertyService';
 
 // Integrated Feature Views
 import { PropertyMarketplace } from '../properties/PropertyMarketplace';
@@ -52,46 +50,115 @@ import { SettingsSubview } from './subviews/SettingsSubview';
 import { ProfileSubview } from './subviews/ProfileSubview';
 
 interface TenantDashboardProps {
+  initialNav?: string;
   onNavigateTab: (tab: string) => void;
   onOpenApplications: () => void;
   onOpenAgreements: () => void;
   onOpenChat: (recipientId?: number) => void;
   onOpenMaintenance: () => void;
   onSelectProperty: (property: Property) => void;
+  onSwitchDashboard?: (type: 'tenant' | 'roommate' | 'shared-living' | 'landlord') => void;
 }
 
 export const TenantDashboard: React.FC<TenantDashboardProps> = ({
+  initialNav,
   onNavigateTab,
   onOpenApplications: _onOpenApplications,
   onOpenAgreements: _onOpenAgreements,
   onOpenChat: _onOpenChat,
   onOpenMaintenance: _onOpenMaintenance,
   onSelectProperty,
+  onSwitchDashboard,
 }) => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [activeNav, setActiveNav] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get('section') || 'dashboard';
+    const sec = params.get('section');
+    if (sec) return sec;
+    if (initialNav) return initialNav;
+    const storedIntent = localStorage.getItem('user_intent');
+    if (storedIntent === 'roommate') return 'roommates';
+    return 'dashboard';
   });
+
+  useEffect(() => {
+    if (initialNav) {
+      setActiveNav(initialNav);
+    }
+  }, [initialNav]);
   const [selectedChatId, setSelectedChatId] = useState<number | undefined>(undefined);
-  const [mapViewMode, setMapViewMode] = useState<'map' | 'list'>('map');
   const [searchQuery, setSearchQuery] = useState('');
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
-
-  // Filters state
-  const [filterLocation, setFilterLocation] = useState('Kathmandu, Nepal');
-  const [filterDate, setFilterDate] = useState('Any date');
-  const [filterBudget, setFilterBudget] = useState('Rs. 10k - 50k');
-  const [filterPropertyType, setFilterPropertyType] = useState('Any');
-  const [filterPriceRange, setFilterPriceRange] = useState('Rs. 10,000 - 50,000');
-  const [filterBedrooms, setFilterBedrooms] = useState('Any');
 
   // Favorites state
   const [favorites, setFavorites] = useState<Set<number>>(new Set([1, 3]));
 
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<L.Map | null>(null);
+  // Live Backend Telemetry State
+  const [leases, setLeases] = useState<Lease[]>([]);
+  const [expenseStats, setExpenseStats] = useState<{
+    total_spent: number;
+    you_owe: number;
+    others_owe_you: number;
+    net_balance: number;
+  }>({ total_spent: 0, you_owe: 0, others_owe_you: 0, net_balance: 0 });
+  const [applications, setApplications] = useState<RentalApplication[]>([]);
+  const [savedPropertiesCount, setSavedPropertiesCount] = useState<number>(0);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchDashboardTelemetry = async () => {
+      try {
+        const [leasesRes, expStatsRes, appsRes, favsRes] = await Promise.allSettled([
+          rentalService.getLeases(),
+          expenseService.getDashboardStats(),
+          applicationService.getApplications(),
+          propertyService.getFavorites(),
+        ]);
+
+        if (!isMounted) return;
+
+        if (leasesRes.status === 'fulfilled') {
+          setLeases(leasesRes.value);
+        }
+        if (expStatsRes.status === 'fulfilled') {
+          setExpenseStats(expStatsRes.value);
+        }
+        if (appsRes.status === 'fulfilled') {
+          setApplications(appsRes.value);
+        }
+        if (favsRes.status === 'fulfilled') {
+          const favs = favsRes.value;
+          setSavedPropertiesCount(Array.isArray(favs) ? favs.length : 0);
+        }
+      } catch (err) {
+        console.error('Failed to load dashboard live metrics', err);
+      }
+    };
+
+    fetchDashboardTelemetry();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const activeLease = leases.find((l) => l.status === 'ACTIVE') || leases[0];
+  const pendingRentPayment = activeLease?.next_payment || (() => {
+    const raw = activeLease?.payments?.find((p) => p.status === 'PENDING' || p.status === 'OVERDUE');
+    if (!raw) return null;
+    const dueTime = new Date(raw.due_date).getTime();
+    const nowTime = new Date().getTime();
+    const daysLeft = Math.ceil((dueTime - nowTime) / (1000 * 60 * 60 * 24));
+    return {
+      id: raw.id,
+      amount: raw.amount,
+      month_for: raw.month_for,
+      due_date: raw.due_date,
+      days_left: daysLeft,
+      is_overdue: raw.status === 'OVERDUE' || daysLeft < 0,
+    };
+  })();
+  const activeApplicationsCount = applications.filter((a) => a.status === 'PENDING' || a.status === 'APPROVED').length;
 
   // Fallback recommended properties matching mockup
   const recommendedProperties: Property[] = [
@@ -238,57 +305,7 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
     },
   ];
 
-  // Leaflet Map Initialization
-  useEffect(() => {
-    if (!mapContainerRef.current) return;
 
-    if (!mapInstanceRef.current) {
-      const map = L.map(mapContainerRef.current, {
-        center: [27.7000, 85.3200],
-        zoom: 12.5,
-        zoomControl: true,
-      });
-
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap',
-        maxZoom: 18,
-      }).addTo(map);
-
-      // Add pins matching mockup
-      const pins = [
-        { lat: 27.6915, lng: 85.3415, label: 'Baneshwor', price: 'Rs. 25k', id: 1 },
-        { lat: 27.6845, lng: 85.3125, label: 'Lalitpur', price: 'Rs. 12k', id: 2 },
-        { lat: 27.7152, lng: 85.3123, label: 'Thamel', price: 'Rs. 18k', id: 3 },
-        { lat: 27.6930, lng: 85.3160, label: 'Kupondole', price: 'Rs. 20k', id: 1 },
-        { lat: 27.7050, lng: 85.3300, label: 'Maitighar', price: 'Rs. 16k', id: 2 },
-      ];
-
-      pins.forEach((pin) => {
-        const icon = L.divIcon({
-          className: 'custom-map-pin-pill',
-          html: `<div style="background-color: #2563eb; color: #ffffff; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 9999px; box-shadow: 0 4px 10px rgba(37,99,235,0.4); border: 2px solid #ffffff; white-space: nowrap; cursor: pointer; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 3px;">📍 ${pin.price}</div>`,
-          iconSize: [60, 24],
-          iconAnchor: [30, 12],
-        });
-
-        const marker = L.marker([pin.lat, pin.lng], { icon }).addTo(map);
-        marker.on('click', () => {
-          const prop = recommendedProperties.find((p) => p.id === pin.id) || recommendedProperties[0];
-          onSelectProperty(prop);
-        });
-      });
-
-      mapInstanceRef.current = map;
-    }
-
-    return () => {
-      // Cleanup on unmount
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
-  }, []);
 
   const toggleFav = (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -309,7 +326,40 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const userName = user?.first_name || user?.full_name?.split(' ')[0] || 'Subekshya';
+  const handleSignOut = () => {
+    logout();
+    setProfileDropdownOpen(false);
+    onNavigateTab('home');
+    if (window.location.hash || window.location.search) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  };
+
+  const userDisplayName =
+    user?.full_name?.trim() ||
+    (user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : '') ||
+    (user?.email ? user.email.split('@')[0] : '') ||
+    'User';
+
+  const userName = user?.first_name?.trim() || userDisplayName.split(' ')[0] || 'User';
+
+  const getInitials = (name: string) => {
+    if (!name) return 'U';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  const getRoleLabel = () => {
+    if (user?.role === 'ADMIN') return 'Administrator';
+    if (user?.role === 'LANDLORD') return 'Landlord';
+    const intent = user?.intent || localStorage.getItem('user_intent');
+    if (intent === 'roommate' || activeNav === 'roommates') return 'Roommate Seeker';
+    if (intent === 'both') return 'Tenant & Roommate';
+    return 'Tenant';
+  };
 
   return (
     <div className="tenant-dashboard-container">
@@ -466,6 +516,17 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
             </div>
           </button>
 
+          <button
+            onClick={handleSignOut}
+            className="tenant-nav-item !text-rose-400 hover:!text-rose-300 hover:!bg-rose-950/40"
+            title="Sign out of your account"
+          >
+            <div className="tenant-nav-left">
+              <LogOut className="w-4 h-4 text-rose-500" />
+              <span>Sign Out</span>
+            </div>
+          </button>
+
           {/* Branded Promo Box */}
           <div
             onClick={() => handleNav('properties')}
@@ -546,14 +607,20 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
                 onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
                 className="tenant-profile-chip"
               >
-                <img
-                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
-                  alt="Subekshya Karki"
-                  className="tenant-avatar-img"
-                />
+                {user?.avatar ? (
+                  <img
+                    src={user.avatar}
+                    alt={userDisplayName}
+                    className="tenant-avatar-img"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                    {getInitials(userDisplayName)}
+                  </div>
+                )}
                 <div className="tenant-profile-info">
-                  <span className="tenant-profile-name">{user?.full_name || 'Subekshya Karki'}</span>
-                  <span className="tenant-profile-role">Tenant</span>
+                  <span className="tenant-profile-name">{userDisplayName}</span>
+                  <span className="tenant-profile-role">{getRoleLabel()}</span>
                 </div>
               </div>
 
@@ -561,8 +628,8 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
               {profileDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl py-2 z-50 animate-fadeIn">
                   <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800">
-                    <p className="text-xs font-bold text-slate-900 dark:text-white">{user?.full_name || 'Subekshya Karki'}</p>
-                    <p className="text-[11px] text-slate-400 truncate">{user?.email || 'subekshyakarki601@gmail.com'}</p>
+                    <p className="text-xs font-bold text-slate-900 dark:text-white">{userDisplayName}</p>
+                    <p className="text-[11px] text-slate-400 truncate">{user?.email || 'user@example.com'}</p>
                   </div>
                   <button
                     onClick={() => handleNav('profile')}
@@ -585,6 +652,41 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
                     <ClipboardList className="w-3.5 h-3.5 text-blue-500" />
                     <span>Rental Applications</span>
                   </button>
+                  {onSwitchDashboard && (
+                    <div className="py-1 border-t border-b border-slate-100 dark:border-slate-800 my-1 bg-slate-50/50 dark:bg-slate-800/30">
+                      <p className="px-4 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Switch Dashboard</p>
+                      <button
+                        onClick={() => {
+                          onSwitchDashboard('roommate');
+                          setProfileDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-1.5 text-xs font-semibold text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40 flex items-center gap-2"
+                      >
+                        <Users className="w-3.5 h-3.5" />
+                        <span>Roommate Dashboard</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          onSwitchDashboard('shared-living');
+                          setProfileDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center gap-2"
+                      >
+                        <Building className="w-3.5 h-3.5" />
+                        <span>Shared Living Dashboard</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          onSwitchDashboard('landlord');
+                          setProfileDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-1.5 text-xs font-semibold text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/40 flex items-center gap-2"
+                      >
+                        <Building className="w-3.5 h-3.5" />
+                        <span>Landlord Dashboard</span>
+                      </button>
+                    </div>
+                  )}
                   <button
                     onClick={() => {
                       onNavigateTab('home');
@@ -596,10 +698,7 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
                     <span>View Public Landing Page</span>
                   </button>
                   <button
-                    onClick={() => {
-                      logout();
-                      setProfileDropdownOpen(false);
-                    }}
+                    onClick={handleSignOut}
                     className="w-full text-left px-4 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2"
                   >
                     <LogOut className="w-3.5 h-3.5" />
@@ -647,7 +746,7 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
               </div>
 
               {/* ================================================================= */}
-              {/* 4. 4 KPI STATS CARDS                                              */}
+              {/* 4. 4 KPI STATS CARDS (Dynamic from Backend)                       */}
               {/* ================================================================= */}
               <div className="tenant-kpi-grid">
                 {/* 1. Saved Properties */}
@@ -661,7 +760,7 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
                     </div>
                     <div>
                       <span className="tenant-kpi-title">Saved Properties</span>
-                      <h3 className="tenant-kpi-value">8</h3>
+                      <h3 className="tenant-kpi-value">{savedPropertiesCount || favorites.size}</h3>
                     </div>
                   </div>
                   <div className="tenant-kpi-footer">
@@ -680,11 +779,13 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
                     </div>
                     <div>
                       <span className="tenant-kpi-title">Active Applications</span>
-                      <h3 className="tenant-kpi-value">2</h3>
+                      <h3 className="tenant-kpi-value">{activeApplicationsCount}</h3>
                     </div>
                   </div>
                   <div className="tenant-kpi-footer">
-                    <span className="tenant-kpi-link">View all →</span>
+                    <span className="tenant-kpi-link">
+                      {activeApplicationsCount > 0 ? `View active (${activeApplicationsCount}) →` : 'Apply for rentals →'}
+                    </span>
                   </div>
                 </div>
 
@@ -699,11 +800,29 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
                     </div>
                     <div>
                       <span className="tenant-kpi-title">Upcoming Rent</span>
-                      <h3 className="tenant-kpi-value">Rs. 15,000</h3>
+                      <h3 className="tenant-kpi-value">
+                        {activeLease && pendingRentPayment
+                          ? `Rs. ${pendingRentPayment.amount.toLocaleString()}`
+                          : activeLease
+                          ? `Rs. ${activeLease.monthly_rent.toLocaleString()}`
+                          : 'Rs. 0'}
+                      </h3>
                     </div>
                   </div>
                   <div className="tenant-kpi-footer">
-                    <span className="text-rose-500 font-semibold text-xs">Due in 5 days</span>
+                    {activeLease && pendingRentPayment ? (
+                      <span className={`${pendingRentPayment.is_overdue ? 'text-rose-500 font-bold' : 'text-rose-500 font-semibold'} text-xs`}>
+                        {pendingRentPayment.is_overdue
+                          ? 'Payment overdue'
+                          : pendingRentPayment.days_left !== undefined
+                          ? `Due in ${pendingRentPayment.days_left} days`
+                          : `Due ${pendingRentPayment.due_date}`}
+                      </span>
+                    ) : activeLease ? (
+                      <span className="text-emerald-500 font-semibold text-xs">Rent paid for this month ✓</span>
+                    ) : (
+                      <span className="text-slate-400 font-medium text-xs">No active lease</span>
+                    )}
                   </div>
                 </div>
 
@@ -718,287 +837,26 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
                     </div>
                     <div>
                       <span className="tenant-kpi-title">Shared Expenses</span>
-                      <h3 className="tenant-kpi-value">Rs. 8,450</h3>
+                      <h3 className="tenant-kpi-value">Rs. {expenseStats.total_spent.toLocaleString()}</h3>
                     </div>
                   </div>
                   <div className="tenant-kpi-footer">
-                    <span className="text-amber-600 dark:text-amber-400 font-semibold text-xs">You owe Rs. 1,200</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* ================================================================= */}
-              {/* 5. MIDDLE ROW: EXPLORE PROPERTIES NEAR YOU & QUICK STATS          */}
-              {/* ================================================================= */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                
-                {/* Card A: Explore Properties Near You (7 cols) */}
-                <div className="lg:col-span-7 tenant-section-card">
-                  <div className="tenant-card-header">
-                    <h3 className="tenant-card-title">
-                      <MapPin className="w-4 h-4 text-blue-600" />
-                      <span>Explore Properties Near You</span>
-                    </h3>
-                    <div className="map-view-toggle">
-                      <button
-                        onClick={() => setMapViewMode('map')}
-                        className={`map-view-btn ${mapViewMode === 'map' ? 'active' : ''}`}
-                      >
-                        Map view
-                      </button>
-                      <button
-                        onClick={() => setMapViewMode('list')}
-                        className={`map-view-btn ${mapViewMode === 'list' ? 'active' : ''}`}
-                      >
-                        List view
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Top Search Controls Bar */}
-                  <div className="explore-top-filters">
-                    <div className="sm:col-span-4 explore-filter-input">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <input
-                        type="text"
-                        value={filterLocation}
-                        onChange={(e) => setFilterLocation(e.target.value)}
-                        placeholder="Location"
-                      />
-                    </div>
-                    <div className="sm:col-span-3 explore-filter-input">
-                      <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <input
-                        type="text"
-                        value={filterDate}
-                        onChange={(e) => setFilterDate(e.target.value)}
-                        placeholder="Move-in Date"
-                      />
-                    </div>
-                    <div className="sm:col-span-3 explore-filter-input">
-                      <DollarSign className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <input
-                        type="text"
-                        value={filterBudget}
-                        onChange={(e) => setFilterBudget(e.target.value)}
-                        placeholder="Budget"
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <button
-                        onClick={() => onNavigateTab('properties')}
-                        className="w-full h-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold px-2 py-2 flex items-center justify-center gap-1 shadow-sm shadow-blue-500/30 transition cursor-pointer"
-                      >
-                        <Search className="w-3.5 h-3.5" />
-                        <span>Search</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Split Layout: Leaflet Map on Left, Filters on Right */}
-                  <div className="explore-map-layout">
-                    {/* Leaflet Map Preview */}
-                    <div className="explore-map-container">
-                      <div ref={mapContainerRef} className="w-full h-full z-10" />
-                    </div>
-
-                    {/* Detailed Side Filters */}
-                    <div className="explore-side-filters">
-                      <div>
-                        <label className="side-filter-label">Property Type</label>
-                        <select
-                          value={filterPropertyType}
-                          onChange={(e) => setFilterPropertyType(e.target.value)}
-                          className="side-filter-select"
-                        >
-                          <option value="Any">Any</option>
-                          <option value="Apartment">Apartment</option>
-                          <option value="Shared Room">Shared Room</option>
-                          <option value="Studio">Studio</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="side-filter-label">Price Range</label>
-                        <select
-                          value={filterPriceRange}
-                          onChange={(e) => setFilterPriceRange(e.target.value)}
-                          className="side-filter-select"
-                        >
-                          <option value="Rs. 10,000 - 50,000">Rs. 10,000 - 50,000</option>
-                          <option value="Under Rs. 15,000">Under Rs. 15,000</option>
-                          <option value="Rs. 15,000 - 30,000">Rs. 15,000 - 30,000</option>
-                          <option value="Above Rs. 30,000">Above Rs. 30,000</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="side-filter-label">Bedrooms</label>
-                        <select
-                          value={filterBedrooms}
-                          onChange={(e) => setFilterBedrooms(e.target.value)}
-                          className="side-filter-select"
-                        >
-                          <option value="Any">Any</option>
-                          <option value="1">1 Bedroom</option>
-                          <option value="2">2 Bedrooms</option>
-                          <option value="3+">3+ Bedrooms</option>
-                        </select>
-                      </div>
-
-                      <button
-                        onClick={() => handleNav('properties')}
-                        className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 pt-1 cursor-pointer"
-                      >
-                        <SlidersHorizontal className="w-3.5 h-3.5" />
-                        <span>More Filters</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Card B: Quick Stats & Donut Chart (5 cols) */}
-                <div id="quick-stats-box" className="lg:col-span-5 tenant-section-card flex flex-col justify-between">
-                  <div>
-                    <div className="tenant-card-header">
-                      <h3 className="tenant-card-title">
-                        <BarChart3 className="w-4 h-4 text-blue-600" />
-                        <span>Quick Stats</span>
-                      </h3>
-                      <button
-                        onClick={() => handleNav('analytics')}
-                        className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5"
-                      >
-                        <span>View more</span>
-                        <ArrowRight className="w-3 h-3" />
-                      </button>
-                    </div>
-
-                    {/* 2 Mini KPI Chips */}
-                    <div className="quick-stats-chips">
-                      <div className="stats-chip-card">
-                        <div className="stats-chip-icon">
-                          <Building2 className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-900 dark:text-white">12</p>
-                          <p className="text-[10px] text-slate-400">Total Listings</p>
-                          <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5">
-                            ↑ 20%
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="stats-chip-card">
-                        <div className="stats-chip-icon">
-                          <Users className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-900 dark:text-white">6</p>
-                          <p className="text-[10px] text-slate-400">New Applicants</p>
-                          <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5">
-                            ↑ 50%
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Donut Chart with Legend */}
-                    <div>
-                      <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-2">
-                        Property Type Distribution
-                      </p>
-                      <div className="donut-chart-container relative">
-                        {/* SVG Donut */}
-                        <div className="relative flex items-center justify-center">
-                          <svg className="donut-chart-svg" viewBox="0 0 36 36">
-                            {/* Background Circle */}
-                            <path
-                              className="text-slate-100 dark:text-slate-800"
-                              strokeWidth="4"
-                              stroke="currentColor"
-                              fill="none"
-                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                            />
-                            {/* Segment 1: Apartment 50% */}
-                            <path
-                              stroke="#2563eb"
-                              strokeWidth="4"
-                              strokeDasharray="50, 100"
-                              strokeDashoffset="0"
-                              fill="none"
-                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                            />
-                            {/* Segment 2: Shared Room 25% */}
-                            <path
-                              stroke="#38bdf8"
-                              strokeWidth="4"
-                              strokeDasharray="25, 100"
-                              strokeDashoffset="-50"
-                              fill="none"
-                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                            />
-                            {/* Segment 3: Studio 17% */}
-                            <path
-                              stroke="#818cf8"
-                              strokeWidth="4"
-                              strokeDasharray="17, 100"
-                              strokeDashoffset="-75"
-                              fill="none"
-                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                            />
-                            {/* Segment 4: Others 8% */}
-                            <path
-                              stroke="#f59e0b"
-                              strokeWidth="4"
-                              strokeDasharray="8, 100"
-                              strokeDashoffset="-92"
-                              fill="none"
-                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                            />
-                          </svg>
-                          <div className="donut-center-label">
-                            <span className="donut-center-value">12</span>
-                            <span className="donut-center-subtitle block">Listings</span>
-                          </div>
-                        </div>
-
-                        {/* Legend */}
-                        <div className="donut-legend">
-                          <div className="donut-legend-row">
-                            <span><span className="donut-legend-dot" style={{ backgroundColor: '#2563eb' }} />Apartment</span>
-                            <span className="font-bold">50%</span>
-                          </div>
-                          <div className="donut-legend-row">
-                            <span><span className="donut-legend-dot" style={{ backgroundColor: '#38bdf8' }} />Shared Room</span>
-                            <span className="font-bold">25%</span>
-                          </div>
-                          <div className="donut-legend-row">
-                            <span><span className="donut-legend-dot" style={{ backgroundColor: '#818cf8' }} />Studio</span>
-                            <span className="font-bold">17%</span>
-                          </div>
-                          <div className="donut-legend-row">
-                            <span><span className="donut-legend-dot" style={{ backgroundColor: '#f59e0b' }} />Others</span>
-                            <span className="font-bold">8%</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Top tip for you Alert Box */}
-                  <div className="stats-top-tip">
-                    <Sparkles className="w-4 h-4 shrink-0 text-blue-600 dark:text-blue-400" />
-                    <div>
-                      <span className="font-bold block text-[11px]">Top tip for you</span>
-                      <span className="text-[11px] opacity-90">
-                        Properties near Thamel get 3x more applications. Check them out! →
+                    {expenseStats.you_owe > 0 ? (
+                      <span className="text-amber-600 dark:text-amber-400 font-semibold text-xs">
+                        You owe Rs. {expenseStats.you_owe.toLocaleString()}
                       </span>
-                    </div>
+                    ) : expenseStats.others_owe_you > 0 ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-xs">
+                        Owed Rs. {expenseStats.others_owe_you.toLocaleString()}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 font-medium text-xs">All settled up ✓</span>
+                    )}
                   </div>
                 </div>
-
               </div>
+
+
 
               {/* ================================================================= */}
               {/* 6. RECOMMENDED PROPERTIES (3 Cards Replica)                       */}
@@ -1101,69 +959,7 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
                 </div>
               </div>
 
-              {/* ================================================================= */}
-              {/* 7. QUICK ACTIONS BAR (4 Action Buttons)                           */}
-              {/* ================================================================= */}
-              <div>
-                <div className="flex items-center gap-1 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                  <Sparkles className="w-3 h-3 text-blue-500" />
-                  <span>Quick Actions</span>
-                </div>
 
-                <div className="quick-actions-bar">
-                  <div
-                    onClick={() => handleNav('properties')}
-                    className="quick-action-btn"
-                  >
-                    <div className="quick-action-icon bg-blue-50 dark:bg-blue-950/50 text-blue-600">
-                      <Home className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h5 className="quick-action-title">Find a Property</h5>
-                      <p className="quick-action-desc">Search rentals near you</p>
-                    </div>
-                  </div>
-
-                  <div
-                    onClick={() => handleNav('roommates')}
-                    className="quick-action-btn"
-                  >
-                    <div className="quick-action-icon bg-purple-50 dark:bg-purple-950/50 text-purple-600">
-                      <Users className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h5 className="quick-action-title">Find a Roommate</h5>
-                      <p className="quick-action-desc">Discover compatible people</p>
-                    </div>
-                  </div>
-
-                  <div
-                    onClick={() => handleNav('maintenance')}
-                    className="quick-action-btn"
-                  >
-                    <div className="quick-action-icon bg-amber-50 dark:bg-amber-950/50 text-amber-600">
-                      <Wrench className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h5 className="quick-action-title">Report Maintenance</h5>
-                      <p className="quick-action-desc">Get issues fixed</p>
-                    </div>
-                  </div>
-
-                  <div
-                    onClick={() => handleNav('agreements')}
-                    className="quick-action-btn"
-                  >
-                    <div className="quick-action-icon bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600">
-                      <FileText className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h5 className="quick-action-title">View Agreements</h5>
-                      <p className="quick-action-desc">Check your lease</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
 
             </div>
 
@@ -1187,79 +983,41 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
                   </button>
                 </div>
 
-                <div className="reminders-list">
-                  {/* Item 1 */}
-                  <div
-                    onClick={() => handleNav('rentals')}
-                    className="reminder-item"
-                  >
-                    <div className="flex items-center">
-                      <div className="reminder-date-block">
-                        <span className="reminder-month">Sep</span>
-                        <span className="reminder-day">10</span>
+                {activeLease && pendingRentPayment ? (
+                  <div className="reminders-list">
+                    <div
+                      onClick={() => handleNav('rentals')}
+                      className="reminder-item cursor-pointer"
+                    >
+                      <div className="flex items-center">
+                        <div className="reminder-date-block">
+                          <span className="reminder-month">
+                            {new Date(pendingRentPayment.due_date).toLocaleDateString('en-US', { month: 'short' })}
+                          </span>
+                          <span className="reminder-day">
+                            {new Date(pendingRentPayment.due_date).getDate() || 1}
+                          </span>
+                        </div>
+                        <div className="reminder-info">
+                          <h5 className="reminder-title">Rent payment due</h5>
+                          <p className="reminder-subtitle">
+                            Rs. {pendingRentPayment.amount.toLocaleString()} •{' '}
+                            {pendingRentPayment.days_left !== undefined
+                              ? `${pendingRentPayment.days_left} days left`
+                              : pendingRentPayment.due_date}
+                          </p>
+                        </div>
                       </div>
-                      <div className="reminder-info">
-                        <h5 className="reminder-title">Rent payment due</h5>
-                        <p className="reminder-subtitle">Rs. 15,000 • 5 days left</p>
-                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
                     </div>
-                    <ChevronRight className="w-4 h-4 text-slate-400" />
                   </div>
-
-                  {/* Item 2 */}
-                  <div
-                    onClick={() => handleNav('maintenance')}
-                    className="reminder-item"
-                  >
-                    <div className="flex items-center">
-                      <div className="reminder-date-block">
-                        <span className="reminder-month">Sep</span>
-                        <span className="reminder-day">12</span>
-                      </div>
-                      <div className="reminder-info">
-                        <h5 className="reminder-title">Maintenance follow-up</h5>
-                        <p className="reminder-subtitle">Kitchen sink repair</p>
-                      </div>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                ) : (
+                  <div className="py-7 px-4 text-center">
+                    <CheckCircle2 className="w-7 h-7 text-emerald-500 mx-auto mb-2 opacity-80" />
+                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">You're all caught up!</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">No pending rent dues or urgent alerts.</p>
                   </div>
-
-                  {/* Item 3 */}
-                  <div
-                    onClick={() => handleNav('applications')}
-                    className="reminder-item"
-                  >
-                    <div className="flex items-center">
-                      <div className="reminder-date-block">
-                        <span className="reminder-month">Sep</span>
-                        <span className="reminder-day">15</span>
-                      </div>
-                      <div className="reminder-info">
-                        <h5 className="reminder-title">Application response</h5>
-                        <p className="reminder-subtitle">Green Valley Apartment</p>
-                      </div>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-400" />
-                  </div>
-
-                  {/* Item 4 */}
-                  <div
-                    onClick={() => handleNav('agreements')}
-                    className="reminder-item"
-                  >
-                    <div className="flex items-center">
-                      <div className="reminder-date-block">
-                        <span className="reminder-month">Sep</span>
-                        <span className="reminder-day">20</span>
-                      </div>
-                      <div className="reminder-info">
-                        <h5 className="reminder-title">Lease agreement review</h5>
-                        <p className="reminder-subtitle">3 months remaining</p>
-                      </div>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-400" />
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* Widget 2: Recent Messages */}
@@ -1385,25 +1143,7 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
                 </div>
               </div>
 
-              {/* Widget 3: Upgrade to Premium Card */}
-              <div className="upgrade-premium-widget">
-                <img
-                  src="/signup_illustration.jpg"
-                  alt="Scenic landscape"
-                  className="upgrade-banner-img"
-                />
-                <h4 className="upgrade-title">Upgrade to Premium</h4>
-                <p className="upgrade-desc">
-                  Get more matches, advanced filters, priority support and more.
-                </p>
-                <button
-                  onClick={() => onNavigateTab('pricing')}
-                  className="upgrade-btn"
-                >
-                  <span>View Plans</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
+
 
             </div>
 
@@ -1419,7 +1159,7 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
 
           {/* Subview 3: Roommate Discovery */}
           {activeNav === 'roommates' && (
-            <div className="tenant-subview-wrapper animate-fadeIn">
+            <div className="tenant-subview-wrapper animate-fadeIn !p-0 !max-w-none">
               <RoommateDiscoveryView onStartChat={(id) => handleNav('messages', id)} />
             </div>
           )}

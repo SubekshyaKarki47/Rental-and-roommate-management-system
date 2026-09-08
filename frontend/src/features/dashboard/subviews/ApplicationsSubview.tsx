@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { applicationService, type RentalApplication } from '../../../services/applicationService';
 import type { Property } from '../../../types/property';
+import { useAuth } from '../../../context/AuthContext';
 
 interface ApplicationsSubviewProps {
   onNavigateTab: (tab: string) => void;
@@ -21,6 +22,10 @@ export const ApplicationsSubview: React.FC<ApplicationsSubviewProps> = ({
   onSelectProperty,
   onOpenChatWithLandlord,
 }) => {
+  const { user } = useAuth();
+  const currentApplicantName = user?.full_name || (user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : '') || 'Applicant';
+  const currentApplicantEmail = user?.email || 'applicant@example.com';
+
   const [applications, setApplications] = useState<RentalApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
@@ -42,12 +47,12 @@ export const ApplicationsSubview: React.FC<ApplicationsSubviewProps> = ({
         primary_image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&auto=format&fit=crop&q=80',
       },
       tenant: {
-        id: 99,
-        email: 'subekshyakarki601@gmail.com',
-        first_name: 'Subekshya',
-        last_name: 'Karki',
-        full_name: 'Subekshya Karki',
-        phone_number: '+977 9841234567',
+        id: user?.id || 99,
+        email: currentApplicantEmail,
+        first_name: user?.first_name || currentApplicantName.split(' ')[0],
+        last_name: user?.last_name || '',
+        full_name: currentApplicantName,
+        phone_number: user?.phone_number || '+977 9841234567',
       },
       status: 'PENDING',
       move_in_date: '2026-09-15',
@@ -76,12 +81,12 @@ export const ApplicationsSubview: React.FC<ApplicationsSubviewProps> = ({
         primary_image: 'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?w=800&auto=format&fit=crop&q=80',
       },
       tenant: {
-        id: 99,
-        email: 'subekshyakarki601@gmail.com',
-        first_name: 'Subekshya',
-        last_name: 'Karki',
-        full_name: 'Subekshya Karki',
-        phone_number: '+977 9841234567',
+        id: user?.id || 99,
+        email: currentApplicantEmail,
+        first_name: user?.first_name || currentApplicantName.split(' ')[0],
+        last_name: user?.last_name || '',
+        full_name: currentApplicantName,
+        phone_number: user?.phone_number || '+977 9841234567',
       },
       status: 'APPROVED',
       move_in_date: '2026-09-20',

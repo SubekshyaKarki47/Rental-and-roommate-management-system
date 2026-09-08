@@ -98,7 +98,7 @@ const TESTIMONIALS = [
 ];
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateTab }) => {
-  const { isAuthenticated, setShowAuthModal, setAuthModalTab } = useAuth();
+  const { isAuthenticated, setShowAuthModal, setAuthModalTab, openAuthModal } = useAuth();
 
   const [location, setLocation] = useState('');
   const [pricingTab, setPricingTab] = useState<'tenant' | 'landlord'>('tenant');
@@ -117,8 +117,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateTab }) => {
       if (intent === 'roommate') onNavigateTab('roommates');
       else onNavigateTab('properties');
     } else {
-      setAuthModalTab('register');
-      setShowAuthModal(true);
+      openAuthModal('register', intent as any);
     }
   };
 

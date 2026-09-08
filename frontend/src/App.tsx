@@ -9,6 +9,9 @@ import { TenantOnboardingModal } from './components/auth/TenantOnboardingModal';
 
 // Feature Components
 import { TenantDashboard } from './features/dashboard/TenantDashboard';
+import { RoommateDashboard } from './features/roommate-dashboard/RoommateDashboard';
+import { SharedLivingDashboard } from './features/shared-living-dashboard/SharedLivingDashboard';
+import { LandlordDashboard } from './features/landlord-dashboard/LandlordDashboard';
 import { RoommateDiscoveryView } from './features/roommates/RoommateDiscoveryView';
 import { RentLedgerDashboard } from './features/rentals/RentLedgerDashboard';
 import { ExpenseSplittingDashboard } from './features/expenses/ExpenseSplittingDashboard';
@@ -24,6 +27,8 @@ import { AIAssistantModal } from './features/ai/AIAssistantModal';
 import { PropertyDetailModal } from './features/properties/PropertyDetailModal';
 import type { Property } from './types/property';
 
+export type DashboardType = 'tenant' | 'roommate' | 'shared-living' | 'landlord';
+
 function MainContent() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<string>(() => {
@@ -35,6 +40,98 @@ function MainContent() {
     return savedUser ? 'dashboard' : 'home';
   });
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+
+  // Multi-Dashboard support
+  const getInitialDashboard = (): DashboardType => {
+    const params = new URLSearchParams(window.location.search);
+    const dashParam = params.get('dashboard') as DashboardType | null;
+    if (dashParam && ['tenant', 'roommate', 'shared-living', 'landlord'].includes(dashParam)) {
+      return dashParam;
+    }
+
+    const savedUserStr = localStorage.getItem('current_user');
+    let parsedRole: string | null = null;
+    let parsedIntent: string | null = null;
+    if (savedUserStr) {
+      try {
+        const parsed = JSON.parse(savedUserStr);
+        parsedRole = parsed.role;
+        parsedIntent = parsed.intent;
+      } catch (e) {}
+    }
+
+    if (parsedRole === 'LANDLORD') {
+      return 'landlord';
+    }
+
+    const saved = localStorage.getItem('active_dashboard') as DashboardType | null;
+    if (saved && ['tenant', 'roommate', 'shared-living'].includes(saved)) {
+      return saved;
+    }
+
+    const userIntent = parsedIntent || localStorage.getItem('user_intent');
+    if (userIntent === 'roommate') return 'roommate';
+    if (userIntent === 'both') return 'shared-living';
+    if (userIntent === 'landlord') return 'landlord';
+    return 'tenant';
+  };
+
+  const [dashboardType, setDashboardType] = useState<DashboardType>(getInitialDashboard);
+
+  // Sync dashboard type with user state
+  useEffect(() => {
+    if (user) {
+      let targetDashboard: DashboardType = 'tenant';
+      if (user.role === 'LANDLORD') {
+        targetDashboard = 'landlord';
+      } else {
+        const saved = localStorage.getItem('active_dashboard') as DashboardType | null;
+        const intent = (user as any)?.intent || localStorage.getItem('user_intent');
+        if (saved && ['tenant', 'roommate', 'shared-living'].includes(saved)) {
+          targetDashboard = saved;
+        } else if (intent === 'roommate') {
+          targetDashboard = 'roommate';
+        } else if (intent === 'both') {
+          targetDashboard = 'shared-living';
+        } else {
+          targetDashboard = 'tenant';
+        }
+      }
+
+      setDashboardType(targetDashboard);
+      localStorage.setItem('active_dashboard', targetDashboard);
+      if (activeTab === 'home') {
+        setActiveTab('dashboard');
+      }
+    }
+  }, [user]);
+
+  // Listen for explicit signup/login redirect events
+  useEffect(() => {
+    const handleRedirect = (e: Event) => {
+      const customEvent = e as CustomEvent<{ dashboard: DashboardType; role?: string }>;
+      const target = customEvent.detail?.dashboard;
+      if (target && ['tenant', 'roommate', 'shared-living', 'landlord'].includes(target)) {
+        setDashboardType(target);
+        localStorage.setItem('active_dashboard', target);
+        const url = new URL(window.location.href);
+        url.searchParams.set('dashboard', target);
+        window.history.replaceState({}, '', url.toString());
+      }
+      setActiveTab('dashboard');
+    };
+
+    window.addEventListener('auth:redirect-dashboard', handleRedirect);
+    return () => window.removeEventListener('auth:redirect-dashboard', handleRedirect);
+  }, []);
+
+  const handleSwitchDashboard = (newType: DashboardType) => {
+    setDashboardType(newType);
+    localStorage.setItem('active_dashboard', newType);
+    const url = new URL(window.location.href);
+    url.searchParams.set('dashboard', newType);
+    window.history.replaceState({}, '', url.toString());
+  };
 
   // Modals state
   const [showApplications, setShowApplications] = useState(false);
@@ -105,23 +202,67 @@ function MainContent() {
     }
   }, [user]);
 
+  // If user logs out, immediately return to home and clean up URL
+  useEffect(() => {
+    if (!user && (activeTab === 'dashboard' || activeTab === 'admin')) {
+      setActiveTab('home');
+      if (window.location.hash || window.location.search) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    }
+  }, [user, activeTab]);
+
+  useEffect(() => {
+    const handleLogout = () => {
+      setActiveTab('home');
+      if (window.location.hash || window.location.search) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    };
+    window.addEventListener('auth:logout', handleLogout);
+    return () => window.removeEventListener('auth:logout', handleLogout);
+  }, []);
+
   const handleStartChat = (recipientId?: number) => {
     setChatRecipientId(recipientId);
     setShowChat(true);
   };
 
-  // If activeTab is 'dashboard', render the dedicated Tenant Dashboard full layout
+  // If activeTab is 'dashboard', render the active dedicated dashboard layout
   if (activeTab === 'dashboard') {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
-        <TenantDashboard
-          onNavigateTab={setActiveTab}
-          onOpenApplications={() => setShowApplications(true)}
-          onOpenAgreements={() => setShowAgreements(true)}
-          onOpenChat={handleStartChat}
-          onOpenMaintenance={() => setActiveTab('maintenance')}
-          onSelectProperty={(prop) => setSelectedProperty(prop)}
-        />
+        {dashboardType === 'roommate' && (
+          <RoommateDashboard
+            onSwitchDashboard={handleSwitchDashboard}
+            onNavigateHome={() => setActiveTab('home')}
+            onOpenChatWithUser={handleStartChat}
+          />
+        )}
+        {dashboardType === 'shared-living' && (
+          <SharedLivingDashboard
+            onSwitchDashboard={handleSwitchDashboard}
+            onNavigateHome={() => setActiveTab('home')}
+            onSelectProperty={(prop) => setSelectedProperty(prop)}
+          />
+        )}
+        {dashboardType === 'landlord' && (
+          <LandlordDashboard
+            onSwitchDashboard={handleSwitchDashboard}
+            onNavigateHome={() => setActiveTab('home')}
+          />
+        )}
+        {dashboardType === 'tenant' && (
+          <TenantDashboard
+            onNavigateTab={setActiveTab}
+            onOpenApplications={() => setShowApplications(true)}
+            onOpenAgreements={() => setShowAgreements(true)}
+            onOpenChat={handleStartChat}
+            onOpenMaintenance={() => setActiveTab('maintenance')}
+            onSelectProperty={(prop) => setSelectedProperty(prop)}
+            onSwitchDashboard={handleSwitchDashboard}
+          />
+        )}
 
         {/* Global Portals & Modals */}
         <AuthModal />

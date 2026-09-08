@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   User as UserIcon,
   ShieldCheck,
@@ -16,11 +16,39 @@ import { useAuth } from '../../../context/AuthContext';
 export const ProfileSubview: React.FC = () => {
   const { user } = useAuth();
 
+  const userDisplayName =
+    user?.full_name?.trim() ||
+    (user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : '') ||
+    (user?.email ? user.email.split('@')[0] : '') ||
+    'User';
+
+  const getInitials = (name: string) => {
+    if (!name) return 'U';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  const roleLabel = (() => {
+    const intent = user?.intent || localStorage.getItem('user_intent');
+    if (intent === 'roommate') return 'Verified Roommate Seeker';
+    if (intent === 'both') return 'Verified Tenant & Roommate';
+    return 'Verified Tenant';
+  })();
+
   const [isEditing, setIsEditing] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   // Profile data
-  const [fullName, setFullName] = useState(user?.full_name || 'Subekshya Karki');
+  const [fullName, setFullName] = useState(userDisplayName);
+
+  useEffect(() => {
+    if (userDisplayName) {
+      setFullName(userDisplayName);
+    }
+  }, [userDisplayName]);
   const [bio, setBio] = useState(
     'Software engineer looking for a peaceful, clean 2BHK flat or private room in Kathmandu or Lalitpur with reliable Wi-Fi and 24h water supply.'
   );
@@ -87,11 +115,17 @@ export const ProfileSubview: React.FC = () => {
         {/* Banner Hero */}
         <div className="profile-banner-hero">
           <div className="profile-avatar-wrap">
-            <img
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80"
-              alt="Subekshya Karki"
-              className="w-full h-full object-cover"
-            />
+            {user?.avatar ? (
+              <img
+                src={user.avatar}
+                alt={fullName}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-3xl">
+                {getInitials(fullName)}
+              </div>
+            )}
           </div>
         </div>
 
@@ -114,7 +148,7 @@ export const ProfileSubview: React.FC = () => {
                 )}
                 <span className="profile-badge-pill">
                   <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
-                  <span>Verified Tenant</span>
+                  <span>{roleLabel}</span>
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1.5">

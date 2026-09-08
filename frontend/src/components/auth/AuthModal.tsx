@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { authService } from '../../services/api';
 import {
@@ -18,10 +18,25 @@ import './AuthModal.css';
 type UserIntentType = 'place' | 'roommate' | 'both' | 'landlord';
 
 export const AuthModal: React.FC = () => {
-  const { showAuthModal, setShowAuthModal, authModalTab, setAuthModalTab, login, register } = useAuth();
+  const {
+    showAuthModal,
+    setShowAuthModal,
+    authModalTab,
+    setAuthModalTab,
+    initialIntent,
+    setInitialIntent,
+    login,
+    register,
+  } = useAuth();
 
   const [step, setStep] = useState<1 | 2>(1);
-  const [userIntent, setUserIntent] = useState<UserIntentType>('place');
+  const [userIntent, setUserIntent] = useState<UserIntentType>(() => initialIntent || 'place');
+
+  useEffect(() => {
+    if (initialIntent) {
+      setUserIntent(initialIntent);
+    }
+  }, [initialIntent, showAuthModal]);
 
   // Form Fields
   const [email, setEmail] = useState('');
@@ -66,7 +81,27 @@ export const AuthModal: React.FC = () => {
 
     try {
       if (authModalTab === 'login') {
-        await login({ email, password });
+        const loggedUser = await login({ email, password });
+        let targetDash: 'tenant' | 'roommate' | 'shared-living' | 'landlord' = 'tenant';
+        if (loggedUser?.role === 'LANDLORD') {
+          targetDash = 'landlord';
+        } else {
+          const savedDash = localStorage.getItem('active_dashboard') as any;
+          const savedIntent = localStorage.getItem('user_intent');
+          if (savedDash && ['tenant', 'roommate', 'shared-living'].includes(savedDash)) {
+            targetDash = savedDash;
+          } else if (savedIntent === 'roommate') {
+            targetDash = 'roommate';
+          } else if (savedIntent === 'both') {
+            targetDash = 'shared-living';
+          }
+        }
+        localStorage.setItem('active_dashboard', targetDash);
+        window.dispatchEvent(
+          new CustomEvent('auth:redirect-dashboard', {
+            detail: { dashboard: targetDash, role: loggedUser?.role },
+          })
+        );
         handleClose();
       } else {
         if (password !== passwordConfirm) {
@@ -77,7 +112,18 @@ export const AuthModal: React.FC = () => {
         }
 
         const role = userIntent === 'landlord' ? 'LANDLORD' : 'TENANT';
-        await register({
+        localStorage.setItem('user_intent', userIntent);
+        const mappedDashboard =
+          userIntent === 'roommate'
+            ? 'roommate'
+            : userIntent === 'both'
+            ? 'shared-living'
+            : userIntent === 'landlord'
+            ? 'landlord'
+            : 'tenant';
+        localStorage.setItem('active_dashboard', mappedDashboard);
+        setInitialIntent(userIntent);
+        const registeredUser = await register({
           email,
           password,
           password_confirm: passwordConfirm,
@@ -86,16 +132,43 @@ export const AuthModal: React.FC = () => {
           phone_number: phoneNumber,
           role,
         });
+
+        window.dispatchEvent(
+          new CustomEvent('auth:redirect-dashboard', {
+            detail: { dashboard: mappedDashboard, role: registeredUser?.role || role },
+          })
+        );
         handleClose();
       }
     } catch (err: any) {
-      const errMsg =
-        err.response?.data?.email?.[0] ||
-        err.response?.data?.password?.[0] ||
-        err.response?.data?.detail ||
-        err.response?.data?.error ||
-        err.message ||
-        'Authentication failed. Please check your credentials.';
+      let errMsg = 'Authentication failed. Please check your credentials.';
+      if (err.message === 'Network Error' || err.code === 'ERR_NETWORK') {
+        errMsg = 'Unable to connect to the backend server. Please verify the backend is running at http://localhost:8000.';
+      } else if (err.response?.data) {
+        const data = err.response.data;
+        if (typeof data === 'string') {
+          errMsg = data;
+        } else if (data.detail) {
+          errMsg = data.detail;
+        } else if (data.error) {
+          errMsg = data.error;
+        } else if (Array.isArray(data.non_field_errors) && data.non_field_errors.length > 0) {
+          errMsg = data.non_field_errors[0];
+        } else {
+          for (const key of Object.keys(data)) {
+            const val = data[key];
+            if (Array.isArray(val) && val.length > 0) {
+              errMsg = `${val[0]}`;
+              break;
+            } else if (typeof val === 'string') {
+              errMsg = val;
+              break;
+            }
+          }
+        }
+      } else if (err.message) {
+        errMsg = err.message;
+      }
       setError(errMsg);
     } finally {
       setIsSubmitting(false);
@@ -130,14 +203,32 @@ export const AuthModal: React.FC = () => {
       setResetSuccess(true);
       setPassword(newPassword);
     } catch (err: any) {
-      const errMsg =
-        err.response?.data?.email?.[0] ||
-        err.response?.data?.confirm_password?.[0] ||
-        err.response?.data?.new_password?.[0] ||
-        err.response?.data?.detail ||
-        err.response?.data?.error ||
-        err.message ||
-        'Failed to reset password. Please verify your email.';
+      let errMsg = 'Failed to reset password. Please verify your email.';
+      if (err.message === 'Network Error' || err.code === 'ERR_NETWORK') {
+        errMsg = 'Unable to connect to the backend server. Please verify the backend is running at http://localhost:8000.';
+      } else if (err.response?.data) {
+        const data = err.response.data;
+        if (typeof data === 'string') {
+          errMsg = data;
+        } else if (data.detail) {
+          errMsg = data.detail;
+        } else if (data.error) {
+          errMsg = data.error;
+        } else {
+          for (const key of Object.keys(data)) {
+            const val = data[key];
+            if (Array.isArray(val) && val.length > 0) {
+              errMsg = `${val[0]}`;
+              break;
+            } else if (typeof val === 'string') {
+              errMsg = val;
+              break;
+            }
+          }
+        }
+      } else if (err.message) {
+        errMsg = err.message;
+      }
       setError(errMsg);
     } finally {
       setIsSubmitting(false);
@@ -262,7 +353,11 @@ export const AuthModal: React.FC = () => {
                       return (
                         <div
                           key={opt.id}
-                          onClick={() => setUserIntent(opt.id)}
+                          onClick={() => {
+                            setUserIntent(opt.id);
+                            setInitialIntent(opt.id);
+                            localStorage.setItem('user_intent', opt.id);
+                          }}
                           className={`auth-intent-card ${isSelected ? 'selected' : ''}`}
                         >
                           {/* Radio / Checkmark Indicator */}

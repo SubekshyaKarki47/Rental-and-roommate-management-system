@@ -1,0 +1,185 @@
+/* RoommateDashboard.css - Dedicated styles for RoomMateHub Find a Roommate Dashboard */
+
+.roommate-dashboard-container {
+  min-height: 100vh;
+  background-color: #f8fafc;
+  color: #0f172a;
+  font-family: inherit;
+}
+
+.dark .roommate-dashboard-container {
+  background-color: #0b1120;
+  color: #f8fafc;
+}
+
+/* Layout Grid */
+.roommate-dashboard-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 1.25rem;
+}
+
+@media (min-width: 1024px) {
+  .roommate-dashboard-layout {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .roommate-dashboard-layout {
+    grid-template-columns: minmax(0, 1fr) 360px;
+  }
+}
+
+/* Hero Welcome Card */
+.roommate-hero-card {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #eff6ff 0%, #e0e7ff 50%, #f0fdf4 100%);
+  border: 1px solid rgba(219, 234, 254, 0.8);
+  border-radius: 1.5rem;
+  padding: 1.75rem 2rem;
+  box-shadow: 0 4px 20px -2px rgba(37, 99, 235, 0.05);
+}
+
+.dark .roommate-hero-card {
+  background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+  border-color: rgba(30, 41, 59, 0.8);
+}
+
+/* Circular Progress Gauge */
+.progress-ring-circle {
+  transition: stroke-dashoffset 0.5s ease-in-out;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+/* Roommate Card */
+.roommate-candidate-card {
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-radius: 1.25rem;
+  border: 1px solid #f1f5f9;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.dark .roommate-candidate-card {
+  background: #111827;
+  border-color: #1f2937;
+}
+
+.roommate-candidate-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 24px -6px rgba(15, 23, 42, 0.08), 0 4px 8px -2px rgba(15, 23, 42, 0.03);
+  border-color: #cbd5e1;
+}
+
+.dark .roommate-candidate-card:hover {
+  border-color: #374151;
+  box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.4);
+}
+
+/* Match Badge */
+.match-score-badge {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  color: #15803d;
+  font-weight: 800;
+  font-size: 0.75rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 9999px;
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.15);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.dark .match-score-badge {
+  background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+  color: #6ee7b7;
+}
+
+/* Lifestyle Tag Chips */
+.lifestyle-tag-chip {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.5rem;
+  background-color: #f1f5f9;
+  color: #475569;
+  transition: background-color 0.15s ease;
+}
+
+.dark .lifestyle-tag-chip {
+  background-color: #1e293b;
+  color: #94a3b8;
+}
+
+/* Wide Match Card (Bottom Row) */
+.mutual-match-card {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  border-radius: 1.25rem;
+  background: #ffffff;
+  border: 1px solid #f1f5f9;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+
+.dark .mutual-match-card {
+  background: #111827;
+  border-color: #1f2937;
+}
+
+.mutual-match-card:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 8px 20px -4px rgba(37, 99, 235, 0.08);
+}
+
+/* Right Sidebar Widget Card */
+.sidebar-widget-card {
+  background: #ffffff;
+  border: 1px solid #f1f5f9;
+  border-radius: 1.25rem;
+  padding: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.dark .sidebar-widget-card {
+  background: #111827;
+  border-color: #1f2937;
+}
+
+/* Activity item hover */
+.activity-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem;
+  border-radius: 0.75rem;
+  transition: background-color 0.15s ease;
+}
+
+.activity-list-item:hover {
+  background-color: #f8fafc;
+}
+
+.dark .activity-list-item:hover {
+  background-color: #1e293b;
+}
+
+/* Handwritten Doodle script */
+.doodle-handwritten {
+  font-family: 'Caveat', 'Comic Sans MS', cursive;
+  font-size: 1.05rem;
+  color: #3b82f6;
+  transform: rotate(-4deg);
+  display: inline-block;
+}

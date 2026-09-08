@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAuth } from '../../../context/AuthContext';
 import {
   BarChart3,
   TrendingUp,
@@ -9,6 +10,9 @@ import {
 } from 'lucide-react';
 
 export const AnalyticsSubview: React.FC = () => {
+  const { user } = useAuth();
+  const userName = user?.first_name || user?.full_name?.split(' ')[0] || 'You';
+
   const neighborhoodData = [
     { name: 'Jhamsikhel / Sanepa', avgPrice: 'Rs. 28,000', percentage: 88, status: 'High Demand' },
     { name: 'New Baneshwor / Shantinagar', avgPrice: 'Rs. 24,500', percentage: 75, status: 'Fast Moving' },
@@ -127,7 +131,7 @@ export const AnalyticsSubview: React.FC = () => {
             <Sparkles className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
             <div>
               <h5 className="text-xs font-bold text-blue-900 dark:text-blue-200">
-                Market Trend Insight for Subekshya
+                Market Trend Insight for {userName}
               </h5>
               <p className="text-xs text-blue-800/80 dark:text-blue-300/80 mt-0.5 leading-relaxed">
                 Rent in New Baneshwor has stabilized this quarter with an average response time of 12 hours. Tenants with verified employer details receive rental approvals 40% faster.

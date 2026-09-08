@@ -15,7 +15,7 @@ interface AgreementsSubviewProps {
 }
 
 export const AgreementsSubview: React.FC<AgreementsSubviewProps> = ({
-  userName = 'Subekshya Karki',
+  userName = 'User',
   onNavigateTab,
 }) => {
   const [agreements, setAgreements] = useState<RentalAgreement[]>([]);
@@ -44,7 +44,7 @@ export const AgreementsSubview: React.FC<AgreementsSubviewProps> = ({
     tenant: {
       id: 99,
       full_name: userName,
-      email: 'subekshyakarki601@gmail.com',
+      email: 'tenant@example.com',
       phone_number: '+977 9841234567',
     },
     title: 'Standard Residential Tenancy Agreement',
@@ -357,7 +357,7 @@ export const AgreementsSubview: React.FC<AgreementsSubviewProps> = ({
 
                   <input
                     type="text"
-                    placeholder="e.g. Subekshya Karki"
+                    placeholder={userName && userName !== 'User' ? `e.g. ${userName}` : "e.g. Your Full Legal Name"}
                     value={signatureName}
                     onChange={(e) => setSignatureName(e.target.value)}
                     className="form-input text-xs mb-3 font-semibold"

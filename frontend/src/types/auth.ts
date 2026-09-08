@@ -43,6 +43,7 @@ export interface User {
   tenant_profile?: TenantProfile;
   landlord_profile?: LandlordProfile;
   has_completed_onboarding?: boolean;
+  intent?: 'place' | 'roommate' | 'both' | 'landlord';
 }
 
 export interface AuthResponse {

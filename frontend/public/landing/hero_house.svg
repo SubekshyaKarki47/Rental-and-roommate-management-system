@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 300" width="100%" height="100%" fill="none">
+  <defs>
+    <linearGradient id="skyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#EBF3FF" />
+      <stop offset="100%" stop-color="#D7E8FF" />
+    </linearGradient>
+    <linearGradient id="roofGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4F86F7" />
+      <stop offset="100%" stop-color="#2563EB" />
+    </linearGradient>
+    <linearGradient id="grassGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#86EFAC" />
+      <stop offset="100%" stop-color="#34D399" />
+    </linearGradient>
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#1E3A8A" flood-opacity="0.12" />
+    </filter>
+  </defs>
+
+  <!-- Sky soft background circle -->
+  <circle cx="250" cy="180" r="160" fill="url(#skyGrad)" opacity="0.6" />
+
+  <!-- Clouds -->
+  <path d="M70 100 C70 90, 80 82, 92 82 C96 72, 108 66, 120 70 C128 62, 142 64, 148 74 C156 74, 164 80, 164 90 C164 98, 156 104, 146 104 L84 104 C76 104, 70 98, 70 100 Z" fill="#FFFFFF" opacity="0.85" />
+  <path d="M340 70 C340 62, 348 56, 358 56 C362 48, 372 44, 382 48 C388 42, 400 44, 406 52 C412 52, 418 56, 418 64 C418 70, 412 76, 404 76 L352 76 C344 76, 340 70, 340 70 Z" fill="#FFFFFF" opacity="0.75" />
+
+  <!-- Green Hills / Landscape -->
+  <path d="M-20 280 Q120 210 260 250 T520 270 L520 320 L-20 320 Z" fill="#A7F3D0" opacity="0.5" />
+  <path d="M0 290 Q180 230 360 260 T520 285 L520 320 L0 320 Z" fill="url(#grassGrad)" />
+
+  <!-- Background Trees -->
+  <!-- Left Pine Trees -->
+  <path d="M90 240 L105 200 L95 200 L110 165 L100 165 L115 130 L130 165 L120 165 L135 200 L125 200 L140 240 Z" fill="#10B981" />
+  <rect x="111" y="240" width="8" height="20" rx="3" fill="#854D0E" />
+
+  <!-- Round Bush Trees -->
+  <circle cx="160" cy="210" r="28" fill="#34D399" />
+  <circle cx="150" cy="225" r="22" fill="#059669" opacity="0.7" />
+  <rect x="157" y="235" width="6" height="25" rx="2" fill="#78350F" />
+
+  <!-- Right Trees -->
+  <circle cx="390" cy="200" r="32" fill="#10B981" />
+  <circle cx="415" cy="215" r="26" fill="#34D399" />
+  <rect x="398" y="228" width="8" height="32" rx="3" fill="#78350F" />
+  <path d="M420 250 L435 210 L425 210 L440 175 L430 175 L445 140 L460 175 L450 175 L465 210 L455 210 L470 250 Z" fill="#059669" />
+
+  <!-- House Structure -->
+  <g filter="url(#softShadow)">
+    <!-- Chimney -->
+    <rect x="305" y="105" width="22" height="45" rx="3" fill="#E2E8F0" />
+    <rect x="302" y="100" width="28" height="7" rx="3" fill="#94A3B8" />
+    <!-- Smoke puff -->
+    <circle cx="320" cy="85" r="6" fill="#CBD5E1" opacity="0.6" />
+    <circle cx="326" cy="72" r="8" fill="#CBD5E1" opacity="0.5" />
+    <circle cx="335" cy="58" r="10" fill="#CBD5E1" opacity="0.4" />
+
+    <!-- Main House Walls -->
+    <rect x="200" y="160" width="160" height="110" rx="10" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="2" />
+
+    <!-- Blue Roof -->
+    <path d="M185 165 L280 95 L375 165 Z" fill="url(#roofGrad)" />
+    <!-- Roof Overhang trim -->
+    <path d="M180 168 L280 93 L380 168" stroke="#1D4ED8" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+
+    <!-- Attic Window (Circle) -->
+    <circle cx="280" cy="135" r="14" fill="#DBEAFE" stroke="#2563EB" stroke-width="2.5" />
+    <line x1="280" y1="121" x2="280" y2="149" stroke="#2563EB" stroke-width="2" />
+    <line x1="266" y1="135" x2="294" y2="135" stroke="#2563EB" stroke-width="2" />
+
+    <!-- Front Door -->
+    <rect x="262" y="205" width="36" height="65" rx="6" fill="#1E40AF" />
+    <!-- Door Knob -->
+    <circle cx="270" cy="240" r="3" fill="#FCD34D" />
+
+    <!-- Left Window -->
+    <rect x="218" y="185" width="32" height="36" rx="5" fill="#EFF6FF" stroke="#93C5FD" stroke-width="2" />
+    <line x1="234" y1="185" x2="234" y2="221" stroke="#93C5FD" stroke-width="1.5" />
+    <line x1="218" y1="203" x2="250" y2="203" stroke="#93C5FD" stroke-width="1.5" />
+    <!-- Window sill -->
+    <rect x="214" y="221" width="40" height="4" rx="2" fill="#60A5FA" />
+
+    <!-- Right Window -->
+    <rect x="310" y="185" width="32" height="36" rx="5" fill="#EFF6FF" stroke="#93C5FD" stroke-width="2" />
+    <line x1="326" y1="185" x2="326" y2="221" stroke="#93C5FD" stroke-width="1.5" />
+    <line x1="310" y1="203" x2="342" y2="203" stroke="#93C5FD" stroke-width="1.5" />
+    <!-- Window sill -->
+    <rect x="306" y="221" width="40" height="4" rx="2" fill="#60A5FA" />
+
+    <!-- Walkway path -->
+    <path d="M266 270 L260 300 L300 300 L294 270 Z" fill="#CBD5E1" opacity="0.7" />
+  </g>
+
+  <!-- Cute garden flowers / plants in front -->
+  <circle cx="215" cy="265" r="5" fill="#F43F5E" />
+  <circle cx="225" cy="268" r="4" fill="#FB7185" />
+  <circle cx="235" cy="266" r="5" fill="#FBBF24" />
+  <circle cx="325" cy="266" r="5" fill="#F43F5E" />
+  <circle cx="335" cy="268" r="4" fill="#A855F7" />
+  <circle cx="345" cy="265" r="5" fill="#FBBF24" />
+</svg>

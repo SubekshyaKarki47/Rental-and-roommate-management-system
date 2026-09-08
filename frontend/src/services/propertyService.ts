@@ -34,13 +34,19 @@ export const propertyService = {
     return res.data;
   },
 
-  async createProperty(data: Partial<Property> & { image_urls?: string[] }): Promise<Property> {
-    const res = await api.post<Property>('/api/properties/', data);
+  async createProperty(data: FormData | (Partial<Property> & { image_urls?: string[] })): Promise<Property> {
+    const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
+    const res = await api.post<Property>('/api/properties/', data, {
+      headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : undefined,
+    });
     return res.data;
   },
 
-  async updateProperty(id: number, data: Partial<Property>): Promise<Property> {
-    const res = await api.patch<Property>(`/api/properties/${id}/`, data);
+  async updateProperty(id: number, data: FormData | Partial<Property>): Promise<Property> {
+    const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
+    const res = await api.patch<Property>(`/api/properties/${id}/`, data, {
+      headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : undefined,
+    });
     return res.data;
   },
 

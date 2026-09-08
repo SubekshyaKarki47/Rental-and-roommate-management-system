@@ -1,0 +1,246 @@
+/* RoommateDashboard.css - Dedicated styles for Roommate Seeker Dashboard */
+
+.roommate-dash-container {
+  display: flex;
+  min-height: 100vh;
+  background-color: #f8fafc;
+  color: #0f172a;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.dark .roommate-dash-container {
+  background-color: #020617;
+  color: #f8fafc;
+}
+
+/* 1. SIDEBAR (Purple/Indigo Themed) */
+.roommate-dash-sidebar {
+  width: 260px;
+  background: #0f172a;
+  color: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1.5rem 1rem;
+  flex-shrink: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@media (max-width: 1024px) {
+  .roommate-dash-sidebar {
+    display: none;
+  }
+}
+
+.roommate-dash-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+  padding: 0 0.5rem;
+}
+
+.roommate-dash-brand-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.35);
+}
+
+.roommate-dash-brand-title {
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+}
+
+.roommate-dash-brand-sub {
+  font-size: 0.7rem;
+  color: #a78bfa;
+  font-weight: 500;
+  display: block;
+}
+
+/* Nav links */
+.roommate-dash-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.roommate-dash-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.75rem;
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: #94a3b8;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.roommate-dash-nav-item:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.roommate-dash-nav-item.active {
+  color: #ffffff;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.85), rgba(79, 70, 229, 0.85));
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);
+}
+
+.roommate-dash-nav-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.roommate-dash-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 9999px;
+  background: #7c3aed;
+  color: #ffffff;
+}
+
+/* Sidebar Switcher Card */
+.roommate-switcher-card {
+  margin-top: 1rem;
+  padding: 0.85rem;
+  border-radius: 1rem;
+  background: rgba(124, 58, 237, 0.12);
+  border: 1px solid rgba(124, 58, 237, 0.25);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.roommate-switcher-card:hover {
+  background: rgba(124, 58, 237, 0.18);
+  border-color: rgba(124, 58, 237, 0.4);
+}
+
+/* 2. MAIN WORKSPACE */
+.roommate-dash-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Top Header */
+.roommate-dash-header {
+  height: 4.25rem;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  flex-shrink: 0;
+  z-index: 30;
+}
+
+.dark .roommate-dash-header {
+  background: rgba(15, 23, 42, 0.85);
+  border-bottom-color: #1e293b;
+}
+
+/* Switcher Button */
+.dash-switcher-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 9999px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dark .dash-switcher-btn {
+  background: #1e293b;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+.dash-switcher-btn:hover {
+  border-color: #7c3aed;
+  color: #7c3aed;
+}
+
+/* Profile Chip */
+.roommate-profile-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.3rem 0.6rem 0.3rem 0.3rem;
+  border-radius: 9999px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dark .roommate-profile-chip {
+  background: #0f172a;
+  border-color: #1e293b;
+}
+
+.roommate-profile-chip:hover {
+  border-color: #7c3aed;
+}
+
+.roommate-profile-name {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #0f172a;
+  display: block;
+  line-height: 1.2;
+}
+
+.dark .roommate-profile-name {
+  color: #f8fafc;
+}
+
+.roommate-profile-role {
+  font-size: 0.65rem;
+  color: #7c3aed;
+  font-weight: 600;
+}
+
+.dark .roommate-profile-role {
+  color: #a78bfa;
+}
+
+/* Scrollable Container */
+.roommate-dash-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 1.5rem;
+}
+
+@media (max-width: 640px) {
+  .roommate-dash-body {
+    padding: 1rem;
+  }
+}

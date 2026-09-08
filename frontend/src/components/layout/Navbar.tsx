@@ -35,7 +35,14 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenApplications,
   onOpenAgreements,
 }) => {
-  const { user, isAuthenticated, logout, setShowAuthModal, setAuthModalTab, refreshUser, setShowOnboardingModal } = useAuth();
+  const {
+    user,
+    isAuthenticated,
+    logout,
+    openAuthModal,
+    refreshUser,
+    setShowOnboardingModal,
+  } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -48,6 +55,13 @@ export const Navbar: React.FC<NavbarProps> = ({
     try {
       await authService.switchRole(targetRole);
       await refreshUser();
+      const targetDash = targetRole === 'LANDLORD' ? 'landlord' : 'tenant';
+      localStorage.setItem('active_dashboard', targetDash);
+      window.dispatchEvent(
+        new CustomEvent('auth:redirect-dashboard', {
+          detail: { dashboard: targetDash, role: targetRole },
+        })
+      );
       setDropdownOpen(false);
     } catch (err) {
       console.error('Failed to switch role', err);
@@ -56,9 +70,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
   };
 
-  const openAuth = (tab: 'login' | 'register') => {
-    setAuthModalTab(tab);
-    setShowAuthModal(true);
+  const openAuth = (tab: 'login' | 'register', intent?: 'place' | 'roommate' | 'both' | 'landlord') => {
+    openAuthModal(tab, intent);
   };
 
   const handleNavClick = (sectionId: string) => {
@@ -81,7 +94,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       if (isAuthenticated) {
         onTabChange?.('roommates');
       } else {
-        openAuth('register');
+        openAuth('register', 'roommate');
       }
     } else if (sectionId === 'how-it-works' || sectionId === 'pricing' || sectionId === 'faq' || sectionId === 'contact') {
       if (activeTab !== 'home') {
@@ -228,9 +241,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onClick={() => setDropdownOpen(!dropdownOpen)}
                   className="flex items-center gap-2 p-1 rounded-full border border-slate-200 dark:border-slate-800 hover:border-blue-500/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition cursor-pointer"
                 >
-                  <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
-                    {user.first_name ? user.first_name[0].toUpperCase() : user.email[0].toUpperCase()}
-                  </div>
+                  {user.avatar ? (
+                    <img
+                      src={user.avatar}
+                      alt={user.full_name || user.email}
+                      className="w-8 h-8 rounded-full object-cover shadow-xs"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                      {user.first_name ? user.first_name[0].toUpperCase() : user.email[0].toUpperCase()}
+                    </div>
+                  )}
                 </button>
 
                 {dropdownOpen && (
@@ -242,7 +263,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">{user.full_name || user.email}</p>
                       <p className="text-[11px] text-slate-500 truncate">{user.email}</p>
                       <span className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-300">
-                        Active: {user.role}
+                        {user.role === 'ADMIN' ? 'Administrator' : user.role === 'LANDLORD' ? 'Landlord' : (user.intent === 'roommate' || localStorage.getItem('user_intent') === 'roommate') ? 'Roommate Seeker' : (user.intent === 'both' || localStorage.getItem('user_intent') === 'both') ? 'Tenant & Roommate' : 'Tenant'}
                       </span>
                     </div>
 
@@ -344,6 +365,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                         onClick={() => {
                           logout();
                           setDropdownOpen(false);
+                          onTabChange?.('home');
+                          if (window.location.hash || window.location.search) {
+                            window.history.replaceState(null, '', window.location.pathname);
+                          }
                         }}
                         className="w-full px-4 py-2 text-xs text-left text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2"
                       >
@@ -434,6 +459,25 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             Contact
           </button>
+
+          {isAuthenticated && (
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                onClick={() => {
+                  logout();
+                  setMobileMenuOpen(false);
+                  onTabChange?.('home');
+                  if (window.location.hash || window.location.search) {
+                    window.history.replaceState(null, '', window.location.pathname);
+                  }
+                }}
+                className="w-full text-left py-2 text-sm font-semibold text-rose-600 dark:text-rose-400 flex items-center gap-2"
+              >
+                <LogOut className="w-4 h-4" />
+                Sign Out ({user?.full_name || user?.email})
+              </button>
+            </div>
+          )}
 
           {/* Mobile Theme Toggle */}
           <div className="pt-3 mt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">

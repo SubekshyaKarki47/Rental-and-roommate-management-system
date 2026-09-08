@@ -24,6 +24,8 @@ export interface RoommateCandidate {
     bedrooms_preferred: number;
     furnishing_preference: string;
     bio: string;
+    age_range?: string;
+    preferred_move_in_date?: string;
   };
   compatibility: {
     score: number;

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../../../context/AuthContext';
 import {
   MessageSquare,
   Search,
@@ -36,6 +37,8 @@ interface MessagesInboxSubviewProps {
 export const MessagesInboxSubview: React.FC<MessagesInboxSubviewProps> = ({
   initialRecipientId,
 }) => {
+  const { user } = useAuth();
+  const currentUserName = user?.full_name || (user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : '') || 'You';
   const contacts: Contact[] = [
     {
       id: 1,
@@ -111,14 +114,14 @@ export const MessagesInboxSubview: React.FC<MessagesInboxSubviewProps> = ({
         id: 1,
         senderId: 1,
         senderName: 'Aarav Sharma',
-        content: 'Hi Subekshya! I saw your roommate profile and notice we both work in tech and have matching sleep hours.',
+        content: 'Hi! I saw your roommate profile and notice we both work in tech and have matching sleep hours.',
         time: '10:15 AM',
         isMe: false,
       },
       {
         id: 2,
         senderId: 'me',
-        senderName: 'Subekshya Karki',
+        senderName: currentUserName,
         content: 'Hi Aarav! Yes, I saw your profile too. I am looking for a 2BHK flat around Baneshwor with reliable internet.',
         time: '10:20 AM',
         isMe: true,
@@ -144,7 +147,7 @@ export const MessagesInboxSubview: React.FC<MessagesInboxSubviewProps> = ({
       {
         id: 2,
         senderId: 'me',
-        senderName: 'Subekshya Karki',
+        senderName: currentUserName,
         content: 'Hi Priya, yes! Does the apartment have uninterrupted 24h water?',
         time: 'Yesterday',
         isMe: true,
@@ -163,7 +166,7 @@ export const MessagesInboxSubview: React.FC<MessagesInboxSubviewProps> = ({
         id: 1,
         senderId: 3,
         senderName: 'Suresh Shrestha',
-        content: 'Namaste Subekshya, thank you for applying to the Shantinagar 2BHK apartment.',
+        content: 'Namaste, thank you for applying to the Shantinagar 2BHK apartment.',
         time: 'Sep 2',
         isMe: false,
       },
@@ -212,7 +215,7 @@ export const MessagesInboxSubview: React.FC<MessagesInboxSubviewProps> = ({
     const newMsg: ChatMessage = {
       id: Date.now(),
       senderId: 'me',
-      senderName: 'Subekshya Karki',
+      senderName: currentUserName,
       content: inputText.trim(),
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       isMe: true,

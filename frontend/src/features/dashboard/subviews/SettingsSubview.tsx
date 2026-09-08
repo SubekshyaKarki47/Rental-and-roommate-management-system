@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Settings,
   User as UserIcon,
@@ -23,12 +23,21 @@ export const SettingsSubview: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'ACCOUNT' | 'SECURITY' | 'NOTIFICATIONS' | 'PREFERENCES'>('ACCOUNT');
 
   // Account details
-  const [firstName, setFirstName] = useState(user?.first_name || 'Subekshya');
-  const [lastName, setLastName] = useState(user?.last_name || 'Karki');
-  const [email, setEmail] = useState(user?.email || 'subekshyakarki601@gmail.com');
-  const [phone, setPhone] = useState(user?.phone_number || '+977 9841234567');
+  const [firstName, setFirstName] = useState(user?.first_name || '');
+  const [lastName, setLastName] = useState(user?.last_name || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [phone, setPhone] = useState(user?.phone_number || '');
   const [city, setCity] = useState('Kathmandu, Nepal');
   const [accountSaved, setAccountSaved] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      if (user.first_name) setFirstName(user.first_name);
+      if (user.last_name) setLastName(user.last_name);
+      if (user.email) setEmail(user.email);
+      if (user.phone_number) setPhone(user.phone_number);
+    }
+  }, [user]);
 
   // Security / Password
   const [currentPassword, setCurrentPassword] = useState('');
