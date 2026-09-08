@@ -65,6 +65,12 @@ export const Navbar: React.FC<NavbarProps> = ({
     if (sectionId === 'home') {
       onTabChange?.('home');
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (sectionId === 'dashboard') {
+      if (isAuthenticated) {
+        onTabChange?.('dashboard');
+      } else {
+        openAuth('login');
+      }
     } else if (sectionId === 'properties') {
       if (isAuthenticated) {
         onTabChange?.('properties');
@@ -116,6 +122,15 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             Home
           </button>
+
+          {isAuthenticated && (
+            <button
+              onClick={() => handleNavClick('dashboard')}
+              className={`nav-link font-semibold text-blue-600 dark:text-blue-400 ${activeTab === 'dashboard' ? 'active' : ''}`}
+            >
+              Dashboard
+            </button>
+          )}
 
           <button
             onClick={() => handleNavClick('properties')}
@@ -232,6 +247,17 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </div>
 
                     <div className="py-1">
+                      <button
+                        onClick={() => {
+                          onTabChange?.('dashboard');
+                          setDropdownOpen(false);
+                        }}
+                        className="w-full px-4 py-2 text-xs text-left text-blue-600 dark:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 font-semibold"
+                      >
+                        <Home className="w-4 h-4 text-blue-600" />
+                        <span>Tenant Dashboard</span>
+                      </button>
+
                       <button
                         onClick={() => {
                           onTabChange?.('rentals');

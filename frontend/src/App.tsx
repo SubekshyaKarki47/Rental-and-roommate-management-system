@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/layout/Navbar';
@@ -8,23 +8,33 @@ import { AuthModal } from './components/auth/AuthModal';
 import { TenantOnboardingModal } from './components/auth/TenantOnboardingModal';
 
 // Feature Components
+import { TenantDashboard } from './features/dashboard/TenantDashboard';
 import { RoommateDiscoveryView } from './features/roommates/RoommateDiscoveryView';
 import { RentLedgerDashboard } from './features/rentals/RentLedgerDashboard';
 import { ExpenseSplittingDashboard } from './features/expenses/ExpenseSplittingDashboard';
 import { MaintenanceDashboard } from './features/maintenance/MaintenanceDashboard';
 import { AdminDashboard } from './features/moderation/AdminDashboard';
+import { PropertyMarketplace } from './features/properties/PropertyMarketplace';
 
 // Modals & Drawers
 import { ApplicationsManagerModal } from './features/applications/ApplicationsManagerModal';
 import { AgreementViewerModal } from './features/agreements/AgreementViewerModal';
 import { ChatDrawer } from './features/messaging/ChatDrawer';
 import { AIAssistantModal } from './features/ai/AIAssistantModal';
-
-import { PropertyMarketplace } from './features/properties/PropertyMarketplace';
+import { PropertyDetailModal } from './features/properties/PropertyDetailModal';
+import type { Property } from './types/property';
 
 function MainContent() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<string>('home');
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab');
+    if (tabParam) return tabParam;
+    if (window.location.hash) return window.location.hash.replace('#', '');
+    const savedUser = localStorage.getItem('current_user');
+    return savedUser ? 'dashboard' : 'home';
+  });
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
 
   // Modals state
   const [showApplications, setShowApplications] = useState(false);
@@ -33,10 +43,129 @@ function MainContent() {
   const [showAI, setShowAI] = useState(false);
   const [chatRecipientId, setChatRecipientId] = useState<number | undefined>(undefined);
 
-  const handleStartChat = (recipientId: number) => {
+  // Sync with window hash changes and query params for modals
+  useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (hash) setActiveTab(hash);
+    };
+    window.addEventListener('hashchange', handleHash);
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('modal') === 'chat') setShowChat(true);
+    if (params.get('modal') === 'applications') setShowApplications(true);
+    if (params.get('modal') === 'agreements') setShowAgreements(true);
+    if (params.get('property') === '1') {
+      setSelectedProperty({
+        id: 1,
+        title: 'Modern 2BHK Apartment',
+        slug: 'modern-2bhk-apartment-baneshwor',
+        description: 'Bright and airy 2BHK apartment in Shantinagar, New Baneshwor with balcony and water backup.',
+        property_type: 'APARTMENT',
+        status: 'ACTIVE',
+        address: 'Shantinagar Gate No. 2',
+        area: 'Baneshwor',
+        city: 'Kathmandu',
+        latitude: 27.6915,
+        longitude: 85.3415,
+        monthly_rent: 25000,
+        security_deposit: 25000,
+        bedrooms: 2,
+        bathrooms: 1,
+        floor: 3,
+        area_sqft: 850,
+        furnishing: 'FURNISHED',
+        has_wifi: true,
+        has_parking: true,
+        has_24h_water: true,
+        has_electricity_backup: true,
+        has_kitchen: true,
+        has_washing_machine: true,
+        has_balcony: true,
+        has_elevator: false,
+        pets_allowed: false,
+        smoking_allowed: false,
+        is_verified: true,
+        is_featured: true,
+        rating: 4.8,
+        total_reviews: 24,
+        primary_image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&auto=format&fit=crop&q=80',
+        images: [],
+        created_at: '2026-01-01',
+      });
+    }
+
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
+
+  // If user logs in or is already logged in as a tenant, default to dashboard if currently on home
+  useEffect(() => {
+    if (user && activeTab === 'home') {
+      setActiveTab('dashboard');
+    }
+  }, [user]);
+
+  const handleStartChat = (recipientId?: number) => {
     setChatRecipientId(recipientId);
     setShowChat(true);
   };
+
+  // If activeTab is 'dashboard', render the dedicated Tenant Dashboard full layout
+  if (activeTab === 'dashboard') {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
+        <TenantDashboard
+          onNavigateTab={setActiveTab}
+          onOpenApplications={() => setShowApplications(true)}
+          onOpenAgreements={() => setShowAgreements(true)}
+          onOpenChat={handleStartChat}
+          onOpenMaintenance={() => setActiveTab('maintenance')}
+          onSelectProperty={(prop) => setSelectedProperty(prop)}
+        />
+
+        {/* Global Portals & Modals */}
+        <AuthModal />
+        <TenantOnboardingModal />
+
+        <PropertyDetailModal
+          property={selectedProperty}
+          onClose={() => setSelectedProperty(null)}
+          onToggleFavorite={(id) => {
+            console.log('Toggled favorite for', id);
+          }}
+          isFavorited={false}
+          onApply={() => {
+            setSelectedProperty(null);
+            setShowApplications(true);
+          }}
+        />
+
+        <ApplicationsManagerModal
+          isOpen={showApplications}
+          onClose={() => setShowApplications(false)}
+          userRole={user?.role}
+        />
+
+        <AgreementViewerModal
+          isOpen={showAgreements}
+          onClose={() => setShowAgreements(false)}
+          userRole={user?.role}
+        />
+
+        <ChatDrawer
+          isOpen={showChat}
+          onClose={() => setShowChat(false)}
+          initialRecipientId={chatRecipientId}
+        />
+
+        <AIAssistantModal
+          isOpen={showAI}
+          onClose={() => setShowAI(false)}
+          userRole={user?.role}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200">
@@ -64,6 +193,19 @@ function MainContent() {
       {/* Global Portals & Modals */}
       <AuthModal />
       <TenantOnboardingModal />
+
+      <PropertyDetailModal
+        property={selectedProperty}
+        onClose={() => setSelectedProperty(null)}
+        onToggleFavorite={(id) => {
+          console.log('Toggled favorite for', id);
+        }}
+        isFavorited={false}
+        onApply={() => {
+          setSelectedProperty(null);
+          setShowApplications(true);
+        }}
+      />
 
       <ApplicationsManagerModal
         isOpen={showApplications}
