@@ -1,33 +1,110 @@
-# Python / Django
+# =========================================================
+# PYTHON / DJANGO
+# =========================================================
+
+# Virtual environments
 backend/venv/
 backend/env/
 backend/.venv/
 venv/
 env/
 .venv/
+
+# Python cache
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Django local database
 *.sqlite3
 db.sqlite3
-*.log
-local_settings.py
-.env
 
-# Node / Frontend
+# Logs
+*.log
+
+# Django local settings
+local_settings.py
+
+# Environment variables / secrets
+.env
+.env.*
+!.env.example
+
+# Django static files generated during development/deployment
+staticfiles/
+
+# Uploaded media files
+# Uncomment if media files should NOT be stored in Git
+# backend/media/
+
+# =========================================================
+# NODE / REACT / VITE
+# =========================================================
+
+# Dependencies
 node_modules/
 frontend/node_modules/
+
+# Build output
+dist/
 frontend/dist/
 frontend/dist-ssr/
+
+# Vite
+.vite/
+
+# npm logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# OS / IDE
+# =========================================================
+# VERCEL
+# =========================================================
+
+.vercel/
+
+# =========================================================
+# TEST / COVERAGE
+# =========================================================
+
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+
+# =========================================================
+# TYPE CHECKING
+# =========================================================
+
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+
+# =========================================================
+# OPERATING SYSTEM
+# =========================================================
+
 .DS_Store
 Thumbs.db
+
+# =========================================================
+# IDE / EDITORS
+# =========================================================
+
 .vscode/
 .idea/
 *.swp
 *.swo
+
+# =========================================================
+# TEMPORARY FILES
+# =========================================================
+
+*.tmp
+*.temp
+*.bak
