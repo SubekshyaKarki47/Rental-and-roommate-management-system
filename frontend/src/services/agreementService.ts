@@ -71,8 +71,8 @@ export const agreementService = {
     return res.data;
   },
 
-  async signAgreement(id: number, signatureData: string): Promise<any> {
-    const res = await api.post(`/api/agreements/${id}/sign/`, { signature_data: signatureData });
+  async signAgreement(id: number, signatureData: string): Promise<{ detail: string; agreement: RentalAgreement }> {
+    const res = await api.post<{ detail: string; agreement: RentalAgreement }>(`/api/agreements/${id}/sign/`, { signature_data: signatureData });
     return res.data;
   },
 

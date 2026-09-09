@@ -82,6 +82,23 @@ export const maintenanceService = {
       if (saved) {
         const localList = JSON.parse(saved);
         if (Array.isArray(localList)) {
+          // 1. Sync status and resolution notes from local updates to backend tickets
+          backendTickets = backendTickets.map((bt) => {
+            const localMatch = localList.find((l: any) => l.id === bt.id || l.title === bt.title);
+            if (localMatch) {
+              const syncedStatus = localMatch.status === 'OPEN' ? 'SUBMITTED' : localMatch.status || bt.status;
+              return {
+                ...bt,
+                status: syncedStatus as any,
+                resolution_notes:
+                  localMatch.resolution_notes ||
+                  (syncedStatus === 'RESOLVED' ? 'Issue repaired by certified technician.' : bt.resolution_notes),
+              };
+            }
+            return bt;
+          });
+
+          // 2. Merge local-only tickets
           const existingIds = new Set(backendTickets.map((t) => t.id));
           const localMapped: MaintenanceTicket[] = localList
             .filter((l: any) => !existingIds.has(l.id))
@@ -103,7 +120,7 @@ export const maintenanceService = {
               description: item.description || `Maintenance ticket: ${item.title}`,
               category: (item.category || 'PLUMBING') as any,
               priority: (item.priority || 'MEDIUM') as any,
-              status: item.status === 'OPEN' ? 'SUBMITTED' : (item.status || 'SUBMITTED') as any,
+              status: (item.status === 'OPEN' ? 'SUBMITTED' : item.status || 'SUBMITTED') as any,
               resolution_notes: item.resolution_notes || (item.status === 'RESOLVED' ? 'Issue repaired by technician.' : ''),
               comments: [],
               created_at: item.date || new Date().toISOString(),

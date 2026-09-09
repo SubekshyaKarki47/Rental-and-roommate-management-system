@@ -20,6 +20,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { MessagesInboxSubview } from '../dashboard/subviews/MessagesInboxSubview';
+import { RoommateDiscoveryView } from '../roommates/RoommateDiscoveryView';
 import type { Property } from '../../types/property';
 import './SharedLivingDashboard.css';
 
@@ -37,7 +38,7 @@ export const SharedLivingDashboard: React.FC<SharedLivingDashboardProps> = ({
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
-  const [activeNav, setActiveNav] = useState<'group' | 'apartments' | 'calculator' | 'applications' | 'messages' | 'settings'>('group');
+  const [activeNav, setActiveNav] = useState<'group' | 'apartments' | 'roommates' | 'calculator' | 'applications' | 'messages' | 'settings'>('group');
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [switcherDropdownOpen, setSwitcherDropdownOpen] = useState(false);
 
@@ -214,6 +215,16 @@ export const SharedLivingDashboard: React.FC<SharedLivingDashboardProps> = ({
               <div className="shared-dash-nav-left">
                 <Home className="w-4 h-4" />
                 <span>Multi-BHK Apartments</span>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setActiveNav('roommates')}
+              className={`shared-dash-nav-item ${activeNav === 'roommates' ? 'active' : ''}`}
+            >
+              <div className="shared-dash-nav-left">
+                <Users className="w-4 h-4" />
+                <span>Recommended Roommates</span>
               </div>
             </button>
 
@@ -608,6 +619,12 @@ export const SharedLivingDashboard: React.FC<SharedLivingDashboardProps> = ({
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {activeNav === 'roommates' && (
+            <div className="max-w-6xl mx-auto animate-fadeIn">
+              <RoommateDiscoveryView />
             </div>
           )}
 

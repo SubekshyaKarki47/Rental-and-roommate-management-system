@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   Building,
   Home,
-  Users,
-  Building2,
   ClipboardList,
   CreditCard,
   Wrench,
@@ -13,8 +11,6 @@ import {
   Sun,
   Moon,
   LogOut,
-  ChevronDown,
-  Layers,
   Plus,
   MapPin,
   TrendingUp,
@@ -33,12 +29,12 @@ import { MessagesInboxSubview } from '../dashboard/subviews/MessagesInboxSubview
 import { CreateListingModal } from '../properties/CreateListingModal';
 import { propertyService } from '../../services/propertyService';
 import { applicationService } from '../../services/applicationService';
+import { maintenanceService } from '../../services/maintenanceService';
+import { api } from '../../services/api';
 import type { Property } from '../../types/property';
 import './LandlordDashboard.css';
 
 interface LandlordDashboardProps {
-  onSwitchDashboard: (dashboardKey: 'tenant' | 'roommate' | 'shared-living' | 'landlord') => void;
-  onNavigateHome?: () => void;
 }
 
 interface LandlordProperty {
@@ -172,15 +168,12 @@ const syncPropertiesWithApplications = (
 };
 
 export const LandlordDashboard: React.FC<LandlordDashboardProps> = ({
-  onSwitchDashboard,
-  onNavigateHome,
 }) => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
   const [activeNav, setActiveNav] = useState<'properties' | 'applications' | 'rent' | 'maintenance' | 'agreements' | 'messages' | 'settings'>('properties');
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
-  const [switcherDropdownOpen, setSwitcherDropdownOpen] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   // Modals state
@@ -305,6 +298,53 @@ export const LandlordDashboard: React.FC<LandlordDashboardProps> = ({
       },
     ];
   });
+
+  // Sync tickets with backend & local updates
+  useEffect(() => {
+    const fetchLatestTickets = async () => {
+      try {
+        const liveTickets = await maintenanceService.getTickets();
+        if (Array.isArray(liveTickets) && liveTickets.length > 0) {
+          const mapped: MaintenanceTicket[] = liveTickets.map((t) => ({
+            id: t.id,
+            unit: t.property_details?.title || 'Rental Property',
+            title: t.title,
+            category: t.category,
+            status: t.status === 'SUBMITTED' ? 'OPEN' : (t.status as any),
+            date: new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            assignedTo: 'Unassigned',
+          }));
+          setTickets((prev) => {
+            const mapById = new Map<number, MaintenanceTicket>();
+            prev.forEach((item) => mapById.set(item.id, item));
+            mapped.forEach((item) => {
+              if (mapById.has(item.id)) {
+                const existing = mapById.get(item.id)!;
+                mapById.set(item.id, { ...item, assignedTo: existing.assignedTo || item.assignedTo });
+              } else {
+                mapById.set(item.id, item);
+              }
+            });
+            const merged = Array.from(mapById.values());
+            localStorage.setItem('landlord_tickets', JSON.stringify(merged));
+            return merged;
+          });
+        }
+      } catch (err) {}
+    };
+
+    fetchLatestTickets();
+
+    const handleSync = () => {
+      fetchLatestTickets();
+    };
+    window.addEventListener('maintenance:updated', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('maintenance:updated', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
+  }, []);
 
   // Landlord Repair Ticket Creation State
   const [showLogRepairModal, setShowLogRepairModal] = useState(false);
@@ -715,45 +755,75 @@ export const LandlordDashboard: React.FC<LandlordDashboardProps> = ({
 
   // Maintenance Handlers
   const handleTicketStatusCycle = async (id: number) => {
-    setTickets((prev) => {
-      const target = prev.find((t) => t.id === id);
-      if (!target) return prev;
+    const target = tickets.find((t) => t.id === id);
+    if (!target) return;
 
-      if (target.status === 'OPEN') {
-        const updated = prev.map((t) => (t.id === id ? { ...t, status: 'IN_PROGRESS' } : t));
-        localStorage.setItem('landlord_tickets', JSON.stringify(updated));
-        showToast(`Ticket #${id} marked as IN_PROGRESS!`);
-        return updated;
-      } else if (target.status === 'IN_PROGRESS') {
-        const updated = prev.map((t) => (t.id === id ? { ...t, status: 'RESOLVED' } : t));
-        localStorage.setItem('landlord_tickets', JSON.stringify(updated));
-        showToast(`Ticket #${id} marked as RESOLVED and moved to resolved archive!`);
-        return updated;
-      } else {
-        // If already RESOLVED, remove it!
-        const updated = prev.filter((t) => t.id !== id);
-        localStorage.setItem('landlord_tickets', JSON.stringify(updated));
-        showToast(`Resolved ticket #${id} removed from dispatch.`);
-        return updated;
-      }
-    });
+    let newStatus: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' = 'OPEN';
+    if (target.status === 'OPEN' || target.status === 'SUBMITTED') {
+      newStatus = 'IN_PROGRESS';
+    } else if (target.status === 'IN_PROGRESS') {
+      newStatus = 'RESOLVED';
+    } else {
+      // If already RESOLVED, remove it
+      handleRemoveTicket(id);
+      return;
+    }
+
+    // 1. Update state and localStorage
+    const updated = tickets.map((t) => (t.id === id ? { ...t, status: newStatus } : t));
+    setTickets(updated);
+    localStorage.setItem('landlord_tickets', JSON.stringify(updated));
+
+    // 2. Call backend API to persist the update
+    try {
+      await maintenanceService.updateTicketStatus(id, {
+        status: newStatus === 'RESOLVED' ? 'RESOLVED' : 'IN_PROGRESS',
+        resolution_notes: newStatus === 'RESOLVED' ? 'Issue inspected and repaired by technician.' : undefined,
+      });
+    } catch (e) {
+      console.warn('Backend ticket status update sync:', e);
+    }
+
+    // 3. Dispatch real-time event for tenant dashboard
+    window.dispatchEvent(
+      new CustomEvent('maintenance:updated', {
+        detail: { id, status: newStatus, resolution_notes: 'Issue inspected and repaired by technician.' },
+      })
+    );
+
+    if (newStatus === 'RESOLVED') {
+      showToast(`Ticket #${id} marked as RESOLVED and moved to resolved archive!`);
+    } else {
+      showToast(`Ticket #${id} marked as IN_PROGRESS!`);
+    }
   };
 
-  const handleRemoveTicket = (id: number) => {
-    setTickets((prev) => {
-      const updated = prev.filter((t) => t.id !== id);
-      localStorage.setItem('landlord_tickets', JSON.stringify(updated));
-      return updated;
-    });
+  const handleRemoveTicket = async (id: number) => {
+    const updated = tickets.filter((t) => t.id !== id);
+    setTickets(updated);
+    localStorage.setItem('landlord_tickets', JSON.stringify(updated));
+
+    try {
+      await api.delete(`/api/maintenance/${id}/`);
+    } catch (e) {}
+
+    window.dispatchEvent(new CustomEvent('maintenance:updated', { detail: { id, removed: true } }));
     showToast('Maintenance request removed.');
   };
 
-  const handleClearAllResolved = () => {
-    setTickets((prev) => {
-      const updated = prev.filter((t) => t.status !== 'RESOLVED');
-      localStorage.setItem('landlord_tickets', JSON.stringify(updated));
-      return updated;
-    });
+  const handleClearAllResolved = async () => {
+    const resolvedTickets = tickets.filter((t) => t.status === 'RESOLVED');
+    const updated = tickets.filter((t) => t.status !== 'RESOLVED');
+    setTickets(updated);
+    localStorage.setItem('landlord_tickets', JSON.stringify(updated));
+
+    for (const t of resolvedTickets) {
+      try {
+        await api.delete(`/api/maintenance/${t.id}/`);
+      } catch (e) {}
+    }
+
+    window.dispatchEvent(new CustomEvent('maintenance:updated', { detail: { clearedResolved: true } }));
     showToast('All resolved maintenance tickets cleared!');
   };
 
@@ -943,18 +1013,6 @@ export const LandlordDashboard: React.FC<LandlordDashboardProps> = ({
 
         {/* Sidebar Bottom */}
         <div>
-          {onNavigateHome && (
-            <button
-              onClick={onNavigateHome}
-              className="landlord-dash-nav-item text-slate-300 hover:text-white hover:bg-slate-800/60 mb-1"
-            >
-              <div className="landlord-dash-nav-left">
-                <Home className="w-4 h-4 text-amber-500" />
-                <span>Back to Website</span>
-              </div>
-            </button>
-          )}
-
           <button
             onClick={() => logout()}
             className="landlord-dash-nav-item !text-rose-400 hover:!text-rose-300 hover:!bg-rose-950/40"
@@ -965,21 +1023,6 @@ export const LandlordDashboard: React.FC<LandlordDashboardProps> = ({
             </div>
           </button>
 
-          {/* Switcher Card */}
-          <div
-            onClick={() => setSwitcherDropdownOpen(!switcherDropdownOpen)}
-            className="landlord-switcher-card"
-          >
-            <div className="flex items-center justify-between text-xs font-bold text-amber-300 mb-1">
-              <span className="flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-amber-400" /> Switch Dashboard
-              </span>
-              <ChevronDown className="w-3.5 h-3.5" />
-            </div>
-            <p className="text-[11px] text-slate-400">
-              Easily jump to Tenant, Roommate, or Co-Living mode.
-            </p>
-          </div>
         </div>
       </aside>
 
@@ -1039,18 +1082,6 @@ export const LandlordDashboard: React.FC<LandlordDashboardProps> = ({
             </div>
 
             <div className="pt-4 border-t border-slate-800 space-y-2">
-              {onNavigateHome && (
-                <button
-                  onClick={() => {
-                    onNavigateHome();
-                    setMobileDrawerOpen(false);
-                  }}
-                  className="w-full flex items-center gap-2 p-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800"
-                >
-                  <Home className="w-4 h-4 text-amber-400" />
-                  <span>Back to Website</span>
-                </button>
-              )}
               <button
                 onClick={() => logout()}
                 className="w-full flex items-center gap-2 p-2.5 rounded-xl text-xs font-semibold text-rose-400 hover:bg-rose-950/30"
@@ -1077,107 +1108,10 @@ export const LandlordDashboard: React.FC<LandlordDashboardProps> = ({
               <Menu className="w-5 h-5" />
             </button>
 
-            {/* Switcher Pill */}
-            <div className="relative">
-              <button
-                onClick={() => setSwitcherDropdownOpen(!switcherDropdownOpen)}
-                className="dash-switcher-btn hover:border-amber-500"
-              >
-                <Building className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                <span>Landlord Dashboard</span>
-                <ChevronDown className="w-3 h-3 text-slate-400" />
-              </button>
-
-              {/* Switcher Dropdown */}
-              {switcherDropdownOpen && (
-                <div
-                  className="absolute left-0 mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-2 z-50 animate-fadeIn"
-                  onMouseLeave={() => setSwitcherDropdownOpen(false)}
-                >
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3 py-1.5">
-                    Available Dashboards
-                  </p>
-                  <button
-                    onClick={() => {
-                      onSwitchDashboard('tenant');
-                      setSwitcherDropdownOpen(false);
-                    }}
-                    className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 transition"
-                  >
-                    <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/40 text-blue-600 flex items-center justify-center">
-                      <Home className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-100 block">Tenant Dashboard</span>
-                      <span className="text-[10px] text-slate-400">Rentals, rent ledger & leases</span>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      onSwitchDashboard('roommate');
-                      setSwitcherDropdownOpen(false);
-                    }}
-                    className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 transition"
-                  >
-                    <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-900/40 text-purple-600 flex items-center justify-center">
-                      <Users className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-100 block">Roommate Dashboard</span>
-                      <span className="text-[10px] text-slate-400">Find compatible roommates</span>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      onSwitchDashboard('shared-living');
-                      setSwitcherDropdownOpen(false);
-                    }}
-                    className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-3 transition"
-                  >
-                    <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 flex items-center justify-center">
-                      <Building2 className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-100 block">Shared Living Dashboard</span>
-                      <span className="text-[10px] text-slate-400">Place & Roommate co-living</span>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      onSwitchDashboard('landlord');
-                      setSwitcherDropdownOpen(false);
-                    }}
-                    className="w-full text-left p-2.5 rounded-xl bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800/60 flex items-center gap-3 transition"
-                  >
-                    <div className="w-7 h-7 rounded-lg bg-orange-600 text-white flex items-center justify-center">
-                      <Building className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <span className="text-xs font-bold text-orange-700 dark:text-orange-300 block">Landlord Dashboard</span>
-                      <span className="text-[10px] text-orange-500 font-semibold">Active Mode</span>
-                    </div>
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
 
           {/* Right Header */}
           <div className="flex items-center gap-3">
-            {onNavigateHome && (
-              <button
-                onClick={onNavigateHome}
-                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold transition"
-                title="Return to Main Website"
-              >
-                <Home className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                <span>Website</span>
-              </button>
-            )}
-
             <button
               onClick={toggleTheme}
               className="p-2 rounded-full text-slate-500 hover:text-slate-700 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
@@ -1298,18 +1232,6 @@ export const LandlordDashboard: React.FC<LandlordDashboardProps> = ({
                     <p className="text-xs font-bold text-slate-900 dark:text-white">{userDisplayName}</p>
                     <p className="text-[11px] text-slate-400 truncate">{user?.email || 'landlord@example.com'}</p>
                   </div>
-                  {onNavigateHome && (
-                    <button
-                      onClick={() => {
-                        onNavigateHome();
-                        setProfileDropdownOpen(false);
-                      }}
-                      className="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
-                    >
-                      <Home className="w-3.5 h-3.5 text-blue-500" />
-                      <span>Back to Website Home</span>
-                    </button>
-                  )}
                   <button
                     onClick={() => {
                       setActiveNav('settings');

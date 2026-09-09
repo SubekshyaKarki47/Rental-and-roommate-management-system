@@ -21,6 +21,7 @@ import { PropertyMarketplace } from './features/properties/PropertyMarketplace';
 
 // Modals & Drawers
 import { ApplicationsManagerModal } from './features/applications/ApplicationsManagerModal';
+import { ApplyModal } from './features/applications/ApplyModal';
 import { AgreementViewerModal } from './features/agreements/AgreementViewerModal';
 import { ChatDrawer } from './features/messaging/ChatDrawer';
 import { AIAssistantModal } from './features/ai/AIAssistantModal';
@@ -40,6 +41,7 @@ function MainContent() {
     return savedUser ? 'dashboard' : 'home';
   });
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  const [applyingProperty, setApplyingProperty] = useState<Property | null>(null);
 
   // Multi-Dashboard support
   const getInitialDashboard = (): DashboardType => {
@@ -135,6 +137,7 @@ function MainContent() {
 
   // Modals state
   const [showApplications, setShowApplications] = useState(false);
+  const [showApply, setShowApply] = useState(false);
   const [showAgreements, setShowAgreements] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [showAI, setShowAI] = useState(false);
@@ -248,8 +251,6 @@ function MainContent() {
         )}
         {dashboardType === 'landlord' && (
           <LandlordDashboard
-            onSwitchDashboard={handleSwitchDashboard}
-            onNavigateHome={() => setActiveTab('home')}
           />
         )}
         {dashboardType === 'tenant' && (
@@ -260,7 +261,6 @@ function MainContent() {
             onOpenChat={handleStartChat}
             onOpenMaintenance={() => setActiveTab('maintenance')}
             onSelectProperty={(prop) => setSelectedProperty(prop)}
-            onSwitchDashboard={handleSwitchDashboard}
           />
         )}
 
@@ -276,10 +276,27 @@ function MainContent() {
           }}
           isFavorited={false}
           onApply={() => {
+            setApplyingProperty(selectedProperty);
             setSelectedProperty(null);
-            setShowApplications(true);
+            setShowApply(true);
           }}
         />
+
+        {showApply && applyingProperty && (
+          <ApplyModal
+            property={applyingProperty}
+            isOpen
+            onClose={() => {
+              setShowApply(false);
+              setApplyingProperty(null);
+            }}
+            onSuccess={() => {
+              setShowApply(false);
+              setApplyingProperty(null);
+              setShowApplications(true);
+            }}
+          />
+        )}
 
         <ApplicationsManagerModal
           isOpen={showApplications}
@@ -320,7 +337,12 @@ function MainContent() {
       />
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-6">
-        {activeTab === 'home' && <LandingPage onNavigateTab={setActiveTab} />}
+        {activeTab === 'home' && (
+          <LandingPage
+            onNavigateTab={setActiveTab}
+            onSelectProperty={(property) => setSelectedProperty(property)}
+          />
+        )}
         {activeTab === 'properties' && <PropertyMarketplace />}
         {activeTab === 'roommates' && <RoommateDiscoveryView onStartChat={handleStartChat} />}
         {activeTab === 'rentals' && <RentLedgerDashboard />}
@@ -343,10 +365,27 @@ function MainContent() {
         }}
         isFavorited={false}
         onApply={() => {
+          setApplyingProperty(selectedProperty);
           setSelectedProperty(null);
-          setShowApplications(true);
+          setShowApply(true);
         }}
       />
+
+      {showApply && applyingProperty && (
+        <ApplyModal
+          property={applyingProperty}
+          isOpen
+          onClose={() => {
+            setShowApply(false);
+            setApplyingProperty(null);
+          }}
+          onSuccess={() => {
+            setShowApply(false);
+            setApplyingProperty(null);
+            setShowApplications(true);
+          }}
+        />
+      )}
 
       <ApplicationsManagerModal
         isOpen={showApplications}

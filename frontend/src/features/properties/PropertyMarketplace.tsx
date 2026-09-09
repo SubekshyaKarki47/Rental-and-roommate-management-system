@@ -7,6 +7,7 @@ import { PropertySearchFilters } from './PropertySearchFilters';
 import { PropertyMap } from './PropertyMap';
 import { PropertyDetailModal } from './PropertyDetailModal';
 import { PropertyComparisonModal } from './PropertyComparisonModal';
+import { ApplyModal } from '../applications/ApplyModal';
 import { CreateListingModal } from './CreateListingModal';
 import { SavedPropertiesDrawer } from './SavedPropertiesDrawer';
 import {
@@ -35,6 +36,7 @@ export const PropertyMarketplace: React.FC = () => {
 
   // Modals & Selected items
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  const [applyingProperty, setApplyingProperty] = useState<Property | null>(null);
   const [comparedProperties, setComparedProperties] = useState<Property[]>([]);
   const [showComparisonModal, setShowComparisonModal] = useState(false);
   const [showCreateListingModal, setShowCreateListingModal] = useState(false);
@@ -317,11 +319,20 @@ export const PropertyMarketplace: React.FC = () => {
         onClose={() => setSelectedProperty(null)}
         onToggleFavorite={handleToggleFavorite}
         isFavorited={selectedProperty ? (favoritesList.some((f) => f.id === selectedProperty.id) || selectedProperty.is_favorited) : false}
-        onApply={() => {
-          alert(`Application request for "${selectedProperty?.title}" submitted to landlord! (Full Application management activates in Phase 3)`);
+        onApply={(property) => {
+          setApplyingProperty(property);
           setSelectedProperty(null);
         }}
       />
+
+      {applyingProperty && (
+        <ApplyModal
+          property={applyingProperty}
+          isOpen
+          onClose={() => setApplyingProperty(null)}
+          onSuccess={() => setApplyingProperty(null)}
+        />
+      )}
 
       {showComparisonModal && (
         <PropertyComparisonModal

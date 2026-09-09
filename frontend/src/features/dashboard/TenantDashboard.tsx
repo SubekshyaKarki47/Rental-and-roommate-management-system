@@ -57,7 +57,6 @@ interface TenantDashboardProps {
   onOpenChat: (recipientId?: number) => void;
   onOpenMaintenance: () => void;
   onSelectProperty: (property: Property) => void;
-  onSwitchDashboard?: (type: 'tenant' | 'roommate' | 'shared-living' | 'landlord') => void;
 }
 
 export const TenantDashboard: React.FC<TenantDashboardProps> = ({
@@ -68,17 +67,18 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
   onOpenChat: _onOpenChat,
   onOpenMaintenance: _onOpenMaintenance,
   onSelectProperty,
-  onSwitchDashboard,
 }) => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const userIntent = user?.intent || localStorage.getItem('user_intent');
+  const canFindRoommates = userIntent === 'both';
   const [activeNav, setActiveNav] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
     const sec = params.get('section');
+    const storedIntent = localStorage.getItem('user_intent');
+    if (sec === 'roommates' && storedIntent !== 'both') return 'dashboard';
     if (sec) return sec;
     if (initialNav) return initialNav;
-    const storedIntent = localStorage.getItem('user_intent');
-    if (storedIntent === 'roommate') return 'roommates';
     return 'dashboard';
   });
 
@@ -104,16 +104,18 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
   }>({ total_spent: 0, you_owe: 0, others_owe_you: 0, net_balance: 0 });
   const [applications, setApplications] = useState<RentalApplication[]>([]);
   const [savedPropertiesCount, setSavedPropertiesCount] = useState<number>(0);
+  const [liveRecommendedProperties, setLiveRecommendedProperties] = useState<Property[]>([]);
 
   useEffect(() => {
     let isMounted = true;
     const fetchDashboardTelemetry = async () => {
       try {
-        const [leasesRes, expStatsRes, appsRes, favsRes] = await Promise.allSettled([
+        const [leasesRes, expStatsRes, appsRes, favsRes, propertiesRes] = await Promise.allSettled([
           rentalService.getLeases(),
           expenseService.getDashboardStats(),
           applicationService.getApplications(),
           propertyService.getFavorites(),
+          propertyService.getProperties({ sort: 'newest' }),
         ]);
 
         if (!isMounted) return;
@@ -130,6 +132,9 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
         if (favsRes.status === 'fulfilled') {
           const favs = favsRes.value;
           setSavedPropertiesCount(Array.isArray(favs) ? favs.length : 0);
+        }
+        if (propertiesRes.status === 'fulfilled') {
+          setLiveRecommendedProperties(propertiesRes.value.results.slice(0, 3));
         }
       } catch (err) {
         console.error('Failed to load dashboard live metrics', err);
@@ -304,6 +309,8 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
       },
     },
   ];
+  const displayedRecommendedProperties =
+    liveRecommendedProperties.length > 0 ? liveRecommendedProperties : recommendedProperties;
 
 
 
@@ -355,9 +362,8 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
   const getRoleLabel = () => {
     if (user?.role === 'ADMIN') return 'Administrator';
     if (user?.role === 'LANDLORD') return 'Landlord';
-    const intent = user?.intent || localStorage.getItem('user_intent');
-    if (intent === 'roommate' || activeNav === 'roommates') return 'Roommate Seeker';
-    if (intent === 'both') return 'Tenant & Roommate';
+    if (userIntent === 'roommate' || activeNav === 'roommates') return 'Roommate Seeker';
+    if (userIntent === 'both') return 'Tenant & Roommate';
     return 'Tenant';
   };
 
@@ -401,15 +407,17 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
               </div>
             </button>
 
-            <button
-              onClick={() => handleNav('roommates')}
-              className={`tenant-nav-item ${activeNav === 'roommates' ? 'active' : ''}`}
-            >
-              <div className="tenant-nav-left">
-                <Users className="w-4 h-4" />
-                <span>Roommates</span>
-              </div>
-            </button>
+            {canFindRoommates && (
+              <button
+                onClick={() => handleNav('roommates')}
+                className={`tenant-nav-item ${activeNav === 'roommates' ? 'active' : ''}`}
+              >
+                <div className="tenant-nav-left">
+                  <Users className="w-4 h-4" />
+                  <span>Roommates</span>
+                </div>
+              </button>
+            )}
 
             <button
               onClick={() => handleNav('applications')}
@@ -652,51 +660,6 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
                     <ClipboardList className="w-3.5 h-3.5 text-blue-500" />
                     <span>Rental Applications</span>
                   </button>
-                  {onSwitchDashboard && (
-                    <div className="py-1 border-t border-b border-slate-100 dark:border-slate-800 my-1 bg-slate-50/50 dark:bg-slate-800/30">
-                      <p className="px-4 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Switch Dashboard</p>
-                      <button
-                        onClick={() => {
-                          onSwitchDashboard('roommate');
-                          setProfileDropdownOpen(false);
-                        }}
-                        className="w-full text-left px-4 py-1.5 text-xs font-semibold text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40 flex items-center gap-2"
-                      >
-                        <Users className="w-3.5 h-3.5" />
-                        <span>Roommate Dashboard</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          onSwitchDashboard('shared-living');
-                          setProfileDropdownOpen(false);
-                        }}
-                        className="w-full text-left px-4 py-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center gap-2"
-                      >
-                        <Building className="w-3.5 h-3.5" />
-                        <span>Shared Living Dashboard</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          onSwitchDashboard('landlord');
-                          setProfileDropdownOpen(false);
-                        }}
-                        className="w-full text-left px-4 py-1.5 text-xs font-semibold text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/40 flex items-center gap-2"
-                      >
-                        <Building className="w-3.5 h-3.5" />
-                        <span>Landlord Dashboard</span>
-                      </button>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => {
-                      onNavigateTab('home');
-                      setProfileDropdownOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
-                  >
-                    <Home className="w-3.5 h-3.5 text-blue-500" />
-                    <span>View Public Landing Page</span>
-                  </button>
                   <button
                     onClick={handleSignOut}
                     className="w-full text-left px-4 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2"
@@ -877,7 +840,7 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
                 </div>
 
                 <div className="recommended-grid">
-                  {recommendedProperties.map((prop, idx) => (
+                  {displayedRecommendedProperties.map((prop, idx) => (
                     <div
                       key={prop.id}
                       onClick={() => onSelectProperty(prop)}
@@ -1158,7 +1121,7 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
           )}
 
           {/* Subview 3: Roommate Discovery */}
-          {activeNav === 'roommates' && (
+          {canFindRoommates && activeNav === 'roommates' && (
             <div className="tenant-subview-wrapper animate-fadeIn !p-0 !max-w-none">
               <RoommateDiscoveryView onStartChat={(id) => handleNav('messages', id)} />
             </div>

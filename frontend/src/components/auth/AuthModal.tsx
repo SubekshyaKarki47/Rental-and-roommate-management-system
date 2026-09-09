@@ -5,7 +5,6 @@ import {
   X,
   Home,
   Users,
-  Building2,
   Building,
   ArrowRight,
   ArrowLeft,
@@ -251,13 +250,6 @@ export const AuthModal: React.FC = () => {
       iconBg: 'bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400',
     },
     {
-      id: 'both' as UserIntentType,
-      title: 'Find a place & roommate',
-      description: 'I need both.',
-      icon: Building2,
-      iconBg: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400',
-    },
-    {
       id: 'landlord' as UserIntentType,
       title: "I'm a landlord",
       description: 'I want to list properties.',
@@ -358,7 +350,7 @@ export const AuthModal: React.FC = () => {
                             setInitialIntent(opt.id);
                             localStorage.setItem('user_intent', opt.id);
                           }}
-                          className={`auth-intent-card ${isSelected ? 'selected' : ''}`}
+                          className={`auth-intent-card ${opt.id === 'landlord' ? 'auth-landlord-intent-card' : ''} ${isSelected ? 'selected' : ''}`}
                         >
                           {/* Radio / Checkmark Indicator */}
                           <div

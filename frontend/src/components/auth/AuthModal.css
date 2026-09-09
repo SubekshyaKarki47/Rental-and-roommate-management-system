@@ -107,6 +107,14 @@
   box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.15), 0 4px 14px -3px rgba(37, 99, 235, 0.12);
 }
 
+@media (min-width: 640px) {
+  .auth-landlord-intent-card {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: calc(50% - 0.4375rem);
+  }
+}
+
 /* Radio / Checkmark indicator */
 .auth-check-indicator {
   position: absolute;

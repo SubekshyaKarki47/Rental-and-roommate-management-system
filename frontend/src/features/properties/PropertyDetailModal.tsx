@@ -60,6 +60,7 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
 
   const handleContactLandlord = () => {
     if (!isAuthenticated) {
+      onClose();
       setShowAuthModal(true);
       return;
     }
@@ -67,8 +68,18 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
     setTimeout(() => setContactSuccess(false), 3000);
   };
 
+  const handleFavoriteClick = () => {
+    if (!isAuthenticated) {
+      onClose();
+      setShowAuthModal(true);
+      return;
+    }
+    onToggleFavorite(property.id);
+  };
+
   const handleApplyClick = () => {
     if (!isAuthenticated) {
+      onClose();
       setShowAuthModal(true);
       return;
     }
@@ -103,7 +114,7 @@ export const PropertyDetailModal: React.FC<PropertyDetailModalProps> = ({
             </button>
 
             <button
-              onClick={() => onToggleFavorite(property.id)}
+              onClick={handleFavoriteClick}
               aria-label="Save property"
               className="p-2 rounded-full border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-red-500 transition"
             >

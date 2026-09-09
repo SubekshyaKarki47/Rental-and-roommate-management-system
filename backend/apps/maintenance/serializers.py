@@ -63,3 +63,13 @@ class MaintenanceStatusUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = MaintenanceRequest
         fields = ['status', 'resolution_notes']
+
+    def to_internal_value(self, data):
+        data = data.copy()
+        if 'status' in data and isinstance(data['status'], str):
+            val = data['status'].upper()
+            if val == 'OPEN':
+                data['status'] = MaintenanceRequest.Status.SUBMITTED
+            elif val in dict(MaintenanceRequest.Status.choices):
+                data['status'] = val
+        return super().to_internal_value(data)

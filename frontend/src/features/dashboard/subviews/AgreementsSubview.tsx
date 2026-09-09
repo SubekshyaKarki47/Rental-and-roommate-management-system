@@ -25,64 +25,6 @@ export const AgreementsSubview: React.FC<AgreementsSubviewProps> = ({
   const [signing, setSigning] = useState(false);
   const [signedSuccess, setSignedSuccess] = useState(false);
 
-  const fallbackAgreement: RentalAgreement = {
-    id: 201,
-    property: 1,
-    property_details: {
-      id: 1,
-      title: 'Modern 2BHK Apartment - Shantinagar',
-      city: 'Kathmandu',
-      area: 'New Baneshwor',
-      monthly_rent: 25000,
-    },
-    landlord: {
-      id: 1,
-      full_name: 'Suresh Shrestha',
-      email: 'suresh.shrestha@example.com',
-      phone_number: '+977 9851023456',
-    },
-    tenant: {
-      id: 99,
-      full_name: userName,
-      email: 'tenant@example.com',
-      phone_number: '+977 9841234567',
-    },
-    title: 'Standard Residential Tenancy Agreement',
-    monthly_rent: 25000,
-    security_deposit: 25000,
-    start_date: '2026-10-01',
-    end_date: '2027-09-30',
-    status: 'PENDING_SIGNATURES',
-    landlord_signed: true,
-    landlord_signature_data: 'Suresh Shrestha [Digitally Verified via RoomMateHub]',
-    landlord_signed_at: '2026-09-02T14:20:00Z',
-    tenant_signed: false,
-    terms_clauses: [
-      {
-        clause_number: 1,
-        title: 'Rent & Security Deposit Terms',
-        body: 'The monthly rent is Rs. 25,000 payable on or before the 1st of each Nepali calendar month. A refundable security deposit of Rs. 25,000 has been secured.',
-      },
-      {
-        clause_number: 2,
-        title: 'Utilities & Backup Services',
-        body: 'Rent includes shared water management (24h deep boring + tanker supply). Electricity backup inverter maintenance is handled by Landlord.',
-      },
-      {
-        clause_number: 3,
-        title: 'Notice Period & Termination',
-        body: 'Either party may terminate this agreement by providing at least 30 calendar days written notice via the RoomMateHub platform.',
-      },
-      {
-        clause_number: 4,
-        title: 'Peaceful Enjoyment & House Rules',
-        body: 'Premises are strictly residential. Quiet hours observed between 10:00 PM and 6:00 AM. Waste segregation into organic and non-organic is mandatory.',
-      },
-    ],
-    additional_rules: 'Pets subject to prior approval. No structural alterations without prior written consent.',
-    created_at: '2026-09-01T08:00:00Z',
-  };
-
   useEffect(() => {
     loadAgreements();
   }, []);
@@ -91,16 +33,11 @@ export const AgreementsSubview: React.FC<AgreementsSubviewProps> = ({
     setLoading(true);
     try {
       const data = await agreementService.getAgreements();
-      if (data && data.length > 0) {
-        setAgreements(data);
-        setSelectedAgr(data[0]);
-      } else {
-        setAgreements([fallbackAgreement]);
-        setSelectedAgr(fallbackAgreement);
-      }
+      setAgreements(data);
+      setSelectedAgr(data[0] || null);
     } catch {
-      setAgreements([fallbackAgreement]);
-      setSelectedAgr(fallbackAgreement);
+      setAgreements([]);
+      setSelectedAgr(null);
     } finally {
       setLoading(false);
     }
@@ -110,20 +47,14 @@ export const AgreementsSubview: React.FC<AgreementsSubviewProps> = ({
     if (!signatureName.trim() || !selectedAgr) return;
     setSigning(true);
     try {
-      await agreementService.signAgreement(selectedAgr.id, signatureName.trim());
+      const response = await agreementService.signAgreement(selectedAgr.id, signatureName.trim());
+      const updated = response.agreement as RentalAgreement;
+      setSelectedAgr(updated);
+      setAgreements((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
     } catch {
-      // Local fallback
+      setSigning(false);
+      return;
     }
-
-    const updated = {
-      ...selectedAgr,
-      tenant_signed: true,
-      tenant_signature_data: `${signatureName.trim()} [Digital Signature]`,
-      tenant_signed_at: new Date().toISOString(),
-      status: 'EXECUTED' as const,
-    };
-    setSelectedAgr(updated);
-    setAgreements((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
     setSignedSuccess(true);
     setSigning(false);
   };
@@ -376,24 +307,36 @@ export const AgreementsSubview: React.FC<AgreementsSubviewProps> = ({
                 <div className="p-4 bg-emerald-50/60 dark:bg-emerald-950/30 rounded-xl border border-emerald-200 dark:border-emerald-900/50 text-center">
                   <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto mb-2" />
                   <h5 className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
-                    Agreement Fully Executed!
+                    {selectedAgr.status === 'EXECUTED' ? 'Agreement Fully Executed!' : 'Your Signature Is Recorded'}
                   </h5>
                   <p className="text-[11px] text-slate-500 mt-1 mb-3">
-                    Both you and the landlord have legally executed this contract.
+                    {selectedAgr.status === 'EXECUTED'
+                      ? 'Both you and the landlord have legally executed this contract.'
+                      : 'The agreement is waiting for the landlord to complete their signature.'}
                   </p>
-                  <button
-                    onClick={() => onNavigateTab('rentals')}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold inline-flex items-center gap-2 shadow-sm transition"
-                  >
-                    <span>View Rent Ledger & Payments</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
+                  {selectedAgr.status === 'EXECUTED' && (
+                    <button
+                      onClick={() => onNavigateTab('rentals')}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold inline-flex items-center gap-2 shadow-sm transition"
+                    >
+                      <span>View Rent Ledger & Payments</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               )}
             </div>
           </div>
         </div>
-      ) : null}
+      ) : (
+        <div className="tenant-content-card text-center py-16">
+          <FileText className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+          <h4 className="text-base font-bold text-slate-800 dark:text-slate-200">No rental agreement available</h4>
+          <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1">
+            Your landlord has not created an agreement for you yet.
+          </p>
+        </div>
+      )}
     </div>
   );
 };

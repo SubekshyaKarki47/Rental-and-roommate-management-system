@@ -9,7 +9,6 @@ import {
 } from 'lucide-react';
 import { applicationService, type RentalApplication } from '../../../services/applicationService';
 import type { Property } from '../../../types/property';
-import { useAuth } from '../../../context/AuthContext';
 
 interface ApplicationsSubviewProps {
   onNavigateTab: (tab: string) => void;
@@ -22,86 +21,10 @@ export const ApplicationsSubview: React.FC<ApplicationsSubviewProps> = ({
   onSelectProperty,
   onOpenChatWithLandlord,
 }) => {
-  const { user } = useAuth();
-  const currentApplicantName = user?.full_name || (user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : '') || 'Applicant';
-  const currentApplicantEmail = user?.email || 'applicant@example.com';
-
   const [applications, setApplications] = useState<RentalApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Fallback mock applications matching user mockup KPI ("Active Applications: 2")
-  const mockFallbackApplications: RentalApplication[] = [
-    {
-      id: 101,
-      property: 1,
-      property_details: {
-        id: 1,
-        title: 'Modern 2BHK Apartment in Shantinagar',
-        city: 'Kathmandu',
-        area: 'Baneshwor',
-        monthly_rent: 25000,
-        bedrooms: 2,
-        bathrooms: 1,
-        primary_image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&auto=format&fit=crop&q=80',
-      },
-      tenant: {
-        id: user?.id || 99,
-        email: currentApplicantEmail,
-        first_name: user?.first_name || currentApplicantName.split(' ')[0],
-        last_name: user?.last_name || '',
-        full_name: currentApplicantName,
-        phone_number: user?.phone_number || '+977 9841234567',
-      },
-      status: 'PENDING',
-      move_in_date: '2026-09-15',
-      monthly_income: 65000,
-      employment_status: 'Full-time Software Engineer',
-      credit_score_range: 'EXCELLENT',
-      message: 'Hi Suresh, I am very interested in this 2BHK flat. I work remotely as a software engineer and have steady income.',
-      emergency_contact_name: 'Ramesh Karki',
-      emergency_contact_phone: '+977 9841000000',
-      emergency_contact_relation: 'Brother',
-      landlord_notes: 'Under review. Checking reference and proof of income.',
-      created_at: '2026-09-01T10:00:00Z',
-      updated_at: '2026-09-02T14:30:00Z',
-    },
-    {
-      id: 102,
-      property: 2,
-      property_details: {
-        id: 2,
-        title: 'Cozy Room in Shared Apartment',
-        city: 'Lalitpur',
-        area: 'Sanepa',
-        monthly_rent: 12000,
-        bedrooms: 1,
-        bathrooms: 1,
-        primary_image: 'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?w=800&auto=format&fit=crop&q=80',
-      },
-      tenant: {
-        id: user?.id || 99,
-        email: currentApplicantEmail,
-        first_name: user?.first_name || currentApplicantName.split(' ')[0],
-        last_name: user?.last_name || '',
-        full_name: currentApplicantName,
-        phone_number: user?.phone_number || '+977 9841234567',
-      },
-      status: 'APPROVED',
-      move_in_date: '2026-09-20',
-      monthly_income: 65000,
-      employment_status: 'Full-time Software Engineer',
-      credit_score_range: 'EXCELLENT',
-      message: 'Looking for a peaceful, clean room in Sanepa with high-speed internet.',
-      emergency_contact_name: 'Ramesh Karki',
-      emergency_contact_phone: '+977 9841000000',
-      emergency_contact_relation: 'Brother',
-      landlord_notes: 'Application approved! Please proceed with lease agreement review and digital signature.',
-      created_at: '2026-08-28T09:15:00Z',
-      updated_at: '2026-09-03T11:00:00Z',
-    },
-  ];
 
   useEffect(() => {
     loadApplications();
@@ -111,13 +34,9 @@ export const ApplicationsSubview: React.FC<ApplicationsSubviewProps> = ({
     setLoading(true);
     try {
       const data = await applicationService.getApplications();
-      if (data && data.length > 0) {
-        setApplications(data);
-      } else {
-        setApplications(mockFallbackApplications);
-      }
+      setApplications(data);
     } catch {
-      setApplications(mockFallbackApplications);
+      setApplications([]);
     } finally {
       setLoading(false);
     }

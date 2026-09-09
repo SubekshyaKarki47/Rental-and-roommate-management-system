@@ -4,7 +4,6 @@ import { useTheme } from '../../context/ThemeContext';
 import { authService } from '../../services/api';
 import {
   Home,
-  Search,
   LogOut,
   Shield,
   Layers,
@@ -127,7 +126,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </span>
         </button>
 
-        {/* Center Navigation Links: Home, Properties, Roommates, How It Works, Pricing, FAQ, Contact */}
+        {/* Center Navigation Links: Home, How It Works, Pricing, FAQ, Contact */}
         <nav className="hidden md:flex items-center gap-6 lg:gap-7">
           <button
             onClick={() => handleNavClick('home')}
@@ -144,20 +143,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               Dashboard
             </button>
           )}
-
-          <button
-            onClick={() => handleNavClick('properties')}
-            className={`nav-link ${activeTab === 'properties' ? 'active' : ''}`}
-          >
-            Properties
-          </button>
-
-          <button
-            onClick={() => handleNavClick('roommates')}
-            className={`nav-link ${activeTab === 'roommates' ? 'active' : ''}`}
-          >
-            Roommates
-          </button>
 
           <button
             onClick={() => handleNavClick('how-it-works')}
@@ -191,16 +176,6 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Right Action Items */}
         <div className="flex items-center gap-2 sm:gap-3">
           
-          {/* Search Icon Button */}
-          <button
-            onClick={() => handleNavClick('properties')}
-            className="nav-search-btn"
-            title="Search properties"
-            aria-label="Search"
-          >
-            <Search className="w-4 h-4" />
-          </button>
-
           {/* Theme Toggle Button (Light/Dark Mode) */}
           <button
             onClick={toggleTheme}
@@ -404,24 +379,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="w-full text-left py-2 text-sm font-semibold text-slate-800 dark:text-slate-200"
           >
             Home
-          </button>
-          <button
-            onClick={() => {
-              handleNavClick('properties');
-              setMobileMenuOpen(false);
-            }}
-            className="w-full text-left py-2 text-sm font-semibold text-slate-800 dark:text-slate-200"
-          >
-            Properties
-          </button>
-          <button
-            onClick={() => {
-              handleNavClick('roommates');
-              setMobileMenuOpen(false);
-            }}
-            className="w-full text-left py-2 text-sm font-semibold text-slate-800 dark:text-slate-200"
-          >
-            Roommates
           </button>
           <button
             onClick={() => {

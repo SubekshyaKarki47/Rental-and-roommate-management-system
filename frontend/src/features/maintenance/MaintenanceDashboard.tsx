@@ -37,6 +37,17 @@ export const MaintenanceDashboard: React.FC<{ userRole?: string }> = ({ userRole
 
   useEffect(() => {
     loadTickets();
+
+    const handleSync = () => {
+      loadTickets();
+    };
+
+    window.addEventListener('maintenance:updated', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('maintenance:updated', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
   }, []);
 
   const loadTickets = async () => {

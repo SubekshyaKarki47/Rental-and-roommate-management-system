@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import type { Property } from '../types/property';
 import {
   MapPin,
   Calendar,
   Home,
   Users,
-  Building2,
   Building,
   Search,
   ArrowRight,
@@ -25,6 +25,7 @@ import './LandingPage.css';
 
 interface LandingPageProps {
   onNavigateTab?: (tab: string) => void;
+  onSelectProperty?: (property: Property) => void;
 }
 
 const FEATURED_PROPERTIES = [
@@ -97,7 +98,7 @@ const TESTIMONIALS = [
   },
 ];
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateTab }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateTab, onSelectProperty }) => {
   const { isAuthenticated, setShowAuthModal, setAuthModalTab, openAuthModal } = useAuth();
 
   const [location, setLocation] = useState('');
@@ -113,6 +114,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateTab }) => {
   };
 
   const handleCardIntent = (intent: string) => {
+    if (intent === 'place' && onNavigateTab) {
+      onNavigateTab('properties');
+      return;
+    }
     if (isAuthenticated && onNavigateTab) {
       if (intent === 'roommate') onNavigateTab('roommates');
       else onNavigateTab('properties');
@@ -120,6 +125,44 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateTab }) => {
       openAuthModal('register', intent as any);
     }
   };
+
+  const getFeaturedProperty = (property: (typeof FEATURED_PROPERTIES)[number]): Property => ({
+    id: property.id,
+    title: property.title,
+    slug: property.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+    description: `A comfortable ${property.title.toLowerCase()} in ${property.location}, with convenient access to local amenities.`,
+    property_type: property.title.toLowerCase().includes('room') ? 'ROOM' : property.title.toLowerCase().includes('studio') ? 'STUDIO' : 'APARTMENT',
+    status: 'ACTIVE',
+    address: property.location,
+    area: property.location.split(',')[0],
+    city: property.location.split(',')[1]?.trim() || 'Kathmandu',
+    latitude: 27.7172,
+    longitude: 85.324,
+    monthly_rent: Number(property.price.replace(/[^0-9]/g, '')),
+    security_deposit: Number(property.price.replace(/[^0-9]/g, '')),
+    bedrooms: Number(property.beds.match(/\d+/)?.[0] || 1),
+    bathrooms: Number(property.baths.match(/\d+/)?.[0] || 1),
+    floor: 2,
+    area_sqft: Number(property.area.replace(/[^0-9]/g, '')),
+    furnishing: 'FURNISHED',
+    has_wifi: true,
+    has_parking: true,
+    has_24h_water: true,
+    has_electricity_backup: true,
+    has_kitchen: true,
+    has_washing_machine: false,
+    has_balcony: true,
+    has_elevator: false,
+    pets_allowed: false,
+    smoking_allowed: false,
+    is_verified: true,
+    is_featured: true,
+    rating: 4.8,
+    total_reviews: 18,
+    primary_image: property.image,
+    images: [],
+    created_at: '2026-01-01',
+  });
 
   return (
     <div className="space-y-24 sm:space-y-32 pb-24 font-sans text-slate-900 dark:text-slate-100 relative">
@@ -137,7 +180,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateTab }) => {
             {/* Tag Pill */}
             <div>
               <span className="hero-tag-pill">
-                Find a place  •  Find a roommate  •  Build your community
+                Verified rentals and compatible roommates
               </span>
             </div>
 
@@ -148,7 +191,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateTab }) => {
                 <span className="text-blue-600 dark:text-blue-400">love to live in.</span>
               </h1>
               <p className="mt-3.5 text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-md leading-relaxed">
-                Discover verified rentals, find compatible roommates, and make your next move easier — all in one place.
+                Discover verified rentals and compatible roommates to make your next move easier.
               </p>
             </div>
 
@@ -201,7 +244,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateTab }) => {
                 {/* 4. Search Button */}
                 <div className="sm:col-span-2 flex justify-end">
                   <button
-                    onClick={() => handleOpenAuth('login')}
+                    onClick={() => onNavigateTab?.('properties')}
                     className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 shadow-sm shadow-blue-500/20 active:scale-95 transition text-xs cursor-pointer"
                   >
                     <Search className="w-3.5 h-3.5" />
@@ -255,7 +298,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateTab }) => {
         </div>
       </section>
 
-      {/* 2. WHAT ARE YOU LOOKING FOR? (4 Category Cards)                          */}
+      {/* 2. WHAT ARE YOU LOOKING FOR? (3 Category Cards)                          */}
       <section className="explore-options-section space-y-6 text-center">
         <div>
           <h2 className="text-2xl sm:text-3xl font-bold font-display text-slate-900 dark:text-white">
@@ -266,7 +309,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateTab }) => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {/* Card 1: Find a place */}
           <div
             onClick={() => handleCardIntent('place')}
@@ -309,28 +352,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateTab }) => {
             </div>
           </div>
 
-          {/* Card 3: Find a place & roommate */}
-          <div
-            onClick={() => handleCardIntent('both')}
-            className="explore-card"
-          >
-            <div>
-              <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 flex items-center justify-center mb-4">
-                <Building2 className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Find a place & roommate</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
-                Get the best of both worlds — a home and a roommate.
-              </p>
-            </div>
-            <div className="flex justify-end mt-4">
-              <div className="explore-card-arrow bg-emerald-50 dark:bg-emerald-950 text-emerald-600">
-                <ArrowRight className="w-4 h-4" />
-              </div>
-            </div>
-          </div>
-
-          {/* Card 4: I'm a landlord */}
+          {/* Card 3: I'm a landlord */}
           <div
             onClick={() => handleCardIntent('landlord')}
             className="explore-card"
@@ -367,7 +389,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateTab }) => {
             </p>
           </div>
           <button
-            onClick={() => handleOpenAuth('login')}
+            onClick={() => onNavigateTab?.('properties')}
             className="text-xs sm:text-sm font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 group transition cursor-pointer"
           >
             <span>View all properties</span>
@@ -379,7 +401,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateTab }) => {
           {FEATURED_PROPERTIES.map((prop) => (
             <div
               key={prop.id}
-              onClick={() => handleOpenAuth('login')}
+              onClick={() => onSelectProperty?.(getFeaturedProperty(prop))}
               className="property-card-replica group text-left"
             >
               {/* Image with Tag & Heart */}
