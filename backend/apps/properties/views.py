@@ -27,6 +27,16 @@ class PropertyListCreateView(generics.ListCreateAPIView):
             return PropertyCreateUpdateSerializer
         return PropertyListSerializer
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        property_obj = serializer.save(status=Property.Status.ACTIVE)
+        response_serializer = PropertyListSerializer(
+            property_obj,
+            context=self.get_serializer_context(),
+        )
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
     def get_queryset(self):
         queryset = Property.objects.all().prefetch_related('images')
 

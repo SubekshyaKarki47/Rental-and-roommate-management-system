@@ -51,6 +51,7 @@ class MaintenanceRequest(models.Model):
         choices=Status.choices,
         default=Status.SUBMITTED
     )
+    assigned_technician = models.CharField(max_length=200, blank=True)
     photo = models.ImageField(
         upload_to='maintenance/photos/',
         null=True,

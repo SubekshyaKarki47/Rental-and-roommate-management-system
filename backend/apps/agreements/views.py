@@ -12,6 +12,7 @@ from apps.agreements.serializers import (
     CreateRentalAgreementSerializer,
     SignAgreementSerializer,
 )
+from apps.applications.models import RentalApplication
 
 
 class AgreementListCreateView(generics.ListCreateAPIView):
@@ -69,6 +70,12 @@ class AgreementSignView(APIView):
             agreement.executed_at = timezone.now()
 
         agreement.save()
+        if agreement.status == RentalAgreement.Status.EXECUTED:
+            RentalApplication.objects.filter(
+                property=agreement.property,
+                tenant=agreement.tenant,
+                status=RentalApplication.Status.APPROVED,
+            ).delete()
         return Response({
             "detail": "Agreement successfully signed!",
             "agreement": RentalAgreementSerializer(agreement).data

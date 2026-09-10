@@ -5,6 +5,7 @@ from rest_framework import status
 from apps.users.models import User
 from apps.properties.models import Property
 from apps.applications.models import RentalApplication
+from apps.agreements.models import RentalAgreement
 
 
 class RentalApplicationTests(TestCase):
@@ -71,6 +72,39 @@ class RentalApplicationTests(TestCase):
         app.refresh_from_db()
         self.assertEqual(app.status, RentalApplication.Status.APPROVED)
         self.assertEqual(app.landlord_notes, 'Verified income')
+        self.assertTrue(
+            RentalAgreement.objects.filter(
+                property=self.property,
+                tenant=self.tenant,
+                landlord=self.landlord,
+            ).exists()
+        )
+        agreement = RentalAgreement.objects.get(
+            property=self.property,
+            tenant=self.tenant,
+            landlord=self.landlord,
+        )
+        self.assertTrue(agreement.landlord_signed)
+        self.assertEqual(agreement.landlord_signature_data, self.landlord.full_name)
+
+    def test_tenant_cannot_submit_duplicate_pending_application(self):
+        RentalApplication.objects.create(
+            tenant=self.tenant,
+            property=self.property,
+            move_in_date='2026-10-01',
+            monthly_income=75000,
+            status=RentalApplication.Status.PENDING,
+        )
+        self.client.force_authenticate(user=self.tenant)
+        res = self.client.post(reverse('application-list-create'), {
+            'property': self.property.id,
+            'move_in_date': '2026-10-15',
+            'monthly_income': 75000,
+            'employment_status': 'EMPLOYED',
+            'credit_score_range': 'GOOD',
+        })
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('already have a pending application', str(res.data).lower())
 
     def test_landlord_stats(self):
         RentalApplication.objects.create(

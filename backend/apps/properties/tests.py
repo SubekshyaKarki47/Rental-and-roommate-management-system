@@ -112,6 +112,14 @@ class PropertyAPITests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(Property.objects.filter(title='New Studio in Sanepa').exists())
 
+        created = Property.objects.get(title='New Studio in Sanepa')
+        self.assertEqual(created.status, Property.Status.ACTIVE)
+
+        self.client.force_authenticate(user=self.tenant)
+        tenant_response = self.client.get(self.list_url)
+        results = tenant_response.data.get('results', tenant_response.data)
+        self.assertIn(created.id, [item['id'] for item in results])
+
     def test_tenant_cannot_create_property(self):
         self.client.force_authenticate(user=self.tenant)
         payload = {

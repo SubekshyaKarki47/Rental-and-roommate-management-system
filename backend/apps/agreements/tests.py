@@ -69,3 +69,22 @@ class RentalAgreementTests(TestCase):
         self.assertTrue(agr.tenant_signed)
         self.assertEqual(agr.status, RentalAgreement.Status.EXECUTED)
         self.assertIsNotNone(agr.executed_at)
+
+    def test_tenant_can_list_agreements_from_paginated_endpoint(self):
+        agreement = RentalAgreement.objects.create(
+            property=self.property,
+            landlord=self.landlord,
+            tenant=self.tenant,
+            title='Lease Agreement for 2BHK Flat in Sanepa',
+            monthly_rent=28000,
+            security_deposit=28000,
+            start_date=timezone.now().date(),
+            end_date=timezone.now().date() + timezone.timedelta(days=365),
+        )
+
+        self.client.force_authenticate(user=self.tenant)
+        response = self.client.get(reverse('agreement-list-create'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('results', response.data)
+        self.assertEqual(response.data['results'][0]['id'], agreement.id)

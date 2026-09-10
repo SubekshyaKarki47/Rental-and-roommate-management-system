@@ -30,6 +30,7 @@ class MaintenanceRequestSerializer(serializers.ModelSerializer):
             'category',
             'priority',
             'status',
+            'assigned_technician',
             'photo',
             'resolution_notes',
             'resolved_at',
@@ -62,7 +63,7 @@ class MaintenanceRequestCreateSerializer(serializers.ModelSerializer):
 class MaintenanceStatusUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = MaintenanceRequest
-        fields = ['status', 'resolution_notes']
+        fields = ['status', 'resolution_notes', 'assigned_technician']
 
     def to_internal_value(self, data):
         data = data.copy()

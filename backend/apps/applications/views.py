@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 
 from apps.applications.models import RentalApplication
 from apps.applications.serializers import (
@@ -11,6 +12,8 @@ from apps.applications.serializers import (
     RentalApplicationStatusUpdateSerializer,
 )
 from apps.properties.models import Property
+from apps.agreements.models import RentalAgreement
+from apps.agreements.services.generator import generate_standard_nepali_clauses
 
 
 class ApplicationListCreateView(generics.ListCreateAPIView):
@@ -114,6 +117,37 @@ class ApplicationStatusUpdateView(APIView):
                         'status': Lease.Status.ACTIVE,
                     }
                 )
+
+                agreement, created = RentalAgreement.objects.get_or_create(
+                    property=prop,
+                    tenant=app.tenant,
+                    landlord=prop.landlord,
+                    defaults={
+                        'title': f'Tenancy Agreement - {prop.title}',
+                        'monthly_rent': prop.monthly_rent,
+                        'security_deposit': prop.security_deposit,
+                        'start_date': start_date,
+                        'end_date': end_date,
+                        'terms_clauses': generate_standard_nepali_clauses(
+                            property_title=prop.title,
+                            monthly_rent=float(prop.monthly_rent),
+                            deposit=float(prop.security_deposit),
+                        ),
+                        'landlord_signed': True,
+                        'landlord_signature_data': prop.landlord.full_name,
+                        'landlord_signed_at': timezone.now(),
+                    },
+                )
+                if not created and not agreement.landlord_signed:
+                    agreement.landlord_signed = True
+                    agreement.landlord_signature_data = prop.landlord.full_name
+                    agreement.landlord_signed_at = timezone.now()
+                    agreement.save(update_fields=[
+                        'landlord_signed',
+                        'landlord_signature_data',
+                        'landlord_signed_at',
+                        'updated_at',
+                    ])
             except Exception:
                 pass
 

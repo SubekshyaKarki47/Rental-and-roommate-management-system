@@ -44,7 +44,7 @@ class Command(BaseCommand):
                 'rating': 4.9,
                 'total_reviews': 18,
                 'images': [
-                    'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=1000&auto=format&fit=crop&q=80',
+                    'https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=1000&auto=format&fit=crop&q=80',
                     'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1000&auto=format&fit=crop&q=80',
                     'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=1000&auto=format&fit=crop&q=80',
                 ]
@@ -80,7 +80,7 @@ class Command(BaseCommand):
                 'rating': 4.8,
                 'total_reviews': 24,
                 'images': [
-                    'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1000&auto=format&fit=crop&q=80',
+                    'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=1000&auto=format&fit=crop&q=80',
                     'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1000&auto=format&fit=crop&q=80',
                 ]
             },
@@ -115,7 +115,7 @@ class Command(BaseCommand):
                 'rating': 4.9,
                 'total_reviews': 12,
                 'images': [
-                    'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1000&auto=format&fit=crop&q=80',
+                    'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=1000&auto=format&fit=crop&q=80',
                     'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1000&auto=format&fit=crop&q=80',
                     'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1000&auto=format&fit=crop&q=80',
                 ]
@@ -151,7 +151,7 @@ class Command(BaseCommand):
                 'rating': 4.7,
                 'total_reviews': 8,
                 'images': [
-                    'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?w=1000&auto=format&fit=crop&q=80',
+                    'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=1000&auto=format&fit=crop&q=80',
                     'https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=1000&auto=format&fit=crop&q=80',
                 ]
             },
@@ -186,7 +186,7 @@ class Command(BaseCommand):
                 'rating': 4.8,
                 'total_reviews': 16,
                 'images': [
-                    'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=1000&auto=format&fit=crop&q=80',
+                    'https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?w=1000&auto=format&fit=crop&q=80',
                     'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=1000&auto=format&fit=crop&q=80',
                 ]
             },
@@ -222,7 +222,7 @@ class Command(BaseCommand):
                 'rating': 5.0,
                 'total_reviews': 31,
                 'images': [
-                    'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1000&auto=format&fit=crop&q=80',
+                    'https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=1000&auto=format&fit=crop&q=80',
                     'https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=1000&auto=format&fit=crop&q=80',
                 ]
             },
@@ -257,7 +257,7 @@ class Command(BaseCommand):
                 'rating': 4.6,
                 'total_reviews': 7,
                 'images': [
-                    'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1000&auto=format&fit=crop&q=80',
+                    'https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=1000&auto=format&fit=crop&q=80',
                 ]
             },
             {
@@ -291,7 +291,7 @@ class Command(BaseCommand):
                 'rating': 4.9,
                 'total_reviews': 19,
                 'images': [
-                    'https://images.unsplash.com/photo-1582650625119-3a31f8418b7d?w=1000&auto=format&fit=crop&q=80',
+                    'https://images.unsplash.com/photo-1600607688969-a5bfcd646154?w=1000&auto=format&fit=crop&q=80',
                     'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=1000&auto=format&fit=crop&q=80',
                 ]
             },
@@ -301,15 +301,21 @@ class Command(BaseCommand):
         for pdata in properties_data:
             images = pdata.pop('images', [])
             title = pdata['title']
-            if not Property.objects.filter(title=title).exists():
-                prop = Property.objects.create(landlord=landlord, **pdata)
-                for i, img_url in enumerate(images):
-                    PropertyImage.objects.create(
-                        property=prop,
-                        image_url=img_url,
-                        is_primary=(i == 0),
-                        order=i
-                    )
+            prop, created = Property.objects.get_or_create(
+                title=title,
+                defaults={'landlord': landlord, **pdata},
+            )
+            for i, img_url in enumerate(images):
+                image, _ = PropertyImage.objects.get_or_create(
+                    property=prop,
+                    order=i,
+                    defaults={'image_url': img_url, 'is_primary': i == 0},
+                )
+                if i == 0 and image.image_url != img_url:
+                    image.image_url = img_url
+                    image.is_primary = True
+                    image.save(update_fields=['image_url', 'is_primary'])
+            if created:
                 created_count += 1
 
         self.stdout.write(self.style.SUCCESS(f'Successfully seeded {created_count} properties.'))
