@@ -30,6 +30,7 @@ export interface MaintenanceTicket {
   category: 'PLUMBING' | 'ELECTRICAL' | 'APPLIANCE' | 'STRUCTURAL' | 'INTERNET' | 'OTHER';
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'EMERGENCY';
   status: 'SUBMITTED' | 'IN_PROGRESS' | 'RESOLVED' | 'CANCELLED';
+  assigned_technician?: string;
   photo?: string;
   resolution_notes?: string;
   resolved_at?: string;
@@ -51,7 +52,7 @@ const syncToLocalTickets = (ticket: Partial<MaintenanceTicket> & { id: number; t
       category: ticket.category || 'PLUMBING',
       status: ticket.status === 'SUBMITTED' ? 'OPEN' : ticket.status || 'OPEN',
       date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-      assignedTo: 'Unassigned',
+      assignedTo: ticket.assigned_technician || 'Unassigned',
     };
     if (existingIdx >= 0) {
       list[existingIdx] = { ...list[existingIdx], ...itemToSave };
@@ -188,7 +189,7 @@ export const maintenanceService = {
     }
   },
 
-  async updateTicketStatus(id: number, data: { status: string; resolution_notes?: string }): Promise<MaintenanceTicket> {
+  async updateTicketStatus(id: number, data: { status: string; resolution_notes?: string; assigned_technician?: string }): Promise<MaintenanceTicket> {
     try {
       const res = await api.patch<MaintenanceTicket>(`/api/maintenance/${id}/`, data);
       syncToLocalTickets(res.data);
@@ -256,6 +257,10 @@ export const maintenanceService = {
         created_at: new Date().toISOString(),
       };
     }
+  },
+
+  async deleteTicket(id: number): Promise<void> {
+    await api.delete(`/api/maintenance/${id}/`);
   },
 
   async getStats(): Promise<{

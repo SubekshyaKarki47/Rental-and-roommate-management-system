@@ -8,6 +8,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { agreementService, type RentalAgreement } from '../../../services/agreementService';
+import { api } from '../../../services/api';
 
 interface AgreementsSubviewProps {
   userName?: string;
@@ -59,6 +60,25 @@ export const AgreementsSubview: React.FC<AgreementsSubviewProps> = ({
     setSigning(false);
   };
 
+  const handlePrintContract = async () => {
+    if (!selectedAgr) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    try {
+      const response = await api.get<string>(agreementService.getHtmlUrl(selectedAgr.id), {
+        responseType: 'text',
+      });
+      printWindow.document.open();
+      printWindow.document.write(response.data);
+      printWindow.document.close();
+      printWindow.focus();
+      printWindow.onload = () => printWindow.print();
+    } catch {
+      printWindow.close();
+    }
+  };
+
   return (
     <div className="tenant-subview-wrapper">
       {/* Subview Header */}
@@ -75,7 +95,8 @@ export const AgreementsSubview: React.FC<AgreementsSubviewProps> = ({
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => window.print()}
+            onClick={handlePrintContract}
+            disabled={!selectedAgr}
             className="px-3.5 py-2 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold rounded-xl flex items-center gap-2 transition"
           >
             <Printer className="w-3.5 h-3.5 text-slate-500" />
@@ -155,7 +176,7 @@ export const AgreementsSubview: React.FC<AgreementsSubviewProps> = ({
                     Landlord: {selectedAgr.landlord?.full_name}
                   </p>
                   <p className="font-bold text-slate-900 dark:text-white mt-0.5">
-                    Tenant: {selectedAgr.tenant?.full_name}
+                    Tenant: {selectedAgr.status === 'EXECUTED' ? selectedAgr.tenant?.full_name : 'Pending both signatures'}
                   </p>
                 </div>
               </div>

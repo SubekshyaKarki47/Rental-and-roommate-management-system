@@ -60,7 +60,18 @@ export const ApplyModal: React.FC<ApplyModalProps> = ({
         onClose();
       }, 1800);
     } catch (err: any) {
-      setError(err.response?.data?.detail || err.response?.data?.message || 'Failed to submit application.');
+      const responseData = err.response?.data;
+      const validationMessage = responseData?.non_field_errors?.[0] ||
+        (Object.values(responseData || {}).find(
+          (value): value is unknown[] => Array.isArray(value) && value.length > 0
+        )?.[0] as string | undefined);
+      setError(
+        responseData?.detail ||
+        responseData?.message ||
+        validationMessage ||
+        (typeof responseData === 'string' ? responseData : null) ||
+        'Failed to submit application.'
+      );
     } finally {
       setLoading(false);
     }

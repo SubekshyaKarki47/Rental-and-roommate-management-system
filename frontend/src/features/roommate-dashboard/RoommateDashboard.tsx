@@ -10,8 +10,6 @@ import {
   Sun,
   Moon,
   LogOut,
-  ChevronDown,
-  Layers,
   Sparkles,
   Building,
   Home,
@@ -221,21 +219,6 @@ export const RoommateDashboard: React.FC<RoommateDashboardProps> = ({
             </div>
           </button>
 
-          {/* Quick Switcher Promo Card */}
-          <div
-            onClick={() => setSwitcherDropdownOpen(true)}
-            className="roommate-switcher-card"
-          >
-            <div className="flex items-center justify-between text-xs font-bold text-purple-300 mb-1">
-              <span className="flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-purple-400" /> Switch Dashboard
-              </span>
-              <ChevronDown className="w-3.5 h-3.5" />
-            </div>
-            <p className="text-[11px] text-slate-400">
-              Switch to Tenant, Co-Living, or Landlord mode anytime.
-            </p>
-          </div>
         </div>
       </aside>
 

@@ -8,6 +8,7 @@ import {
   Zap,
   Droplets,
   Flame,
+  Trash2,
 } from 'lucide-react';
 import {
   maintenanceService,
@@ -141,6 +142,37 @@ export const MaintenanceDashboard: React.FC<{ userRole?: string }> = ({ userRole
     }
   };
 
+  const handleClearResolvedLogs = async () => {
+    const resolvedTickets = tickets.filter((ticket) => ticket.status === 'RESOLVED');
+    if (resolvedTickets.length === 0) return;
+    if (!window.confirm(`Clear ${resolvedTickets.length} resolved maintenance log(s)?`)) return;
+
+    const results = await Promise.allSettled(
+      resolvedTickets.map((ticket) => maintenanceService.deleteTicket(ticket.id))
+    );
+    const hasBackendFailure = results.some((result) => result.status === 'rejected');
+    const resolvedIds = new Set(resolvedTickets.map((ticket) => ticket.id));
+    setTickets((previous) => previous.filter((ticket) => !resolvedIds.has(ticket.id)));
+
+    try {
+      const saved = localStorage.getItem('landlord_tickets');
+      if (saved) {
+        const localTickets = JSON.parse(saved);
+        localStorage.setItem(
+          'landlord_tickets',
+          JSON.stringify(localTickets.filter((ticket: MaintenanceTicket) => !resolvedIds.has(ticket.id)))
+        );
+      }
+    } catch {
+      // The backend deletion is still authoritative when local storage is unavailable.
+    }
+
+    await loadTickets();
+    if (hasBackendFailure) {
+      alert('Some resolved logs could not be cleared. Please try again.');
+    }
+  };
+
   const getCategoryIcon = (cat: string) => {
     switch (cat) {
       case 'PLUMBING':
@@ -241,6 +273,16 @@ export const MaintenanceDashboard: React.FC<{ userRole?: string }> = ({ userRole
                   >
                     Resolved ({safeTickets.filter((t) => t.status === 'RESOLVED').length})
                   </button>
+                  {safeTickets.some((t) => t.status === 'RESOLVED') && (
+                    <button
+                      onClick={handleClearResolvedLogs}
+                      title="Clear resolved maintenance logs"
+                      className="px-3 py-1.5 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition inline-flex items-center gap-1.5"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Clear Logs</span>
+                    </button>
+                  )}
                 </div>
               </div>
 

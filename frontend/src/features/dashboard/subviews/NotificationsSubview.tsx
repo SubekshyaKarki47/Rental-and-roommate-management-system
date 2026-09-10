@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Bell,
   CheckCircle2,
@@ -9,6 +9,7 @@ import {
   Check,
   ArrowRight,
 } from 'lucide-react';
+import { notificationService } from '../../../services/notificationService';
 
 interface NotificationItem {
   id: number;
@@ -28,7 +29,7 @@ interface NotificationsSubviewProps {
 export const NotificationsSubview: React.FC<NotificationsSubviewProps> = ({
   onNavigateTab,
 }) => {
-  const [notifications, setNotifications] = useState<NotificationItem[]>([
+  const demoNotifications: NotificationItem[] = [
     {
       id: 1,
       title: 'Upcoming Rent Payment Due',
@@ -69,7 +70,32 @@ export const NotificationsSubview: React.FC<NotificationsSubviewProps> = ({
       actionTab: 'maintenance',
       actionLabel: 'View Ticket',
     },
-  ]);
+  ];
+
+  const [notifications, setNotifications] = useState<NotificationItem[]>(demoNotifications);
+
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        const response = await notificationService.getNotifications();
+        const liveNotifications: NotificationItem[] = response.results.map((notification) => ({
+          id: notification.id,
+          title: notification.title,
+          description: notification.message,
+          type: notification.category === 'MAINTENANCE' ? 'MAINTENANCE' : notification.category as NotificationItem['type'],
+          time: new Date(notification.created_at).toLocaleString(),
+          unread: !notification.is_read,
+          actionTab: notification.action_url?.includes('maintenance') ? 'maintenance' : 'notifications',
+          actionLabel: notification.category === 'MAINTENANCE' ? 'View Ticket' : 'View Notification',
+        }));
+        setNotifications(liveNotifications);
+      } catch {
+        setNotifications(demoNotifications);
+      }
+    };
+
+    loadNotifications();
+  }, []);
 
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'UNREAD'>('ALL');
 
@@ -77,12 +103,17 @@ export const NotificationsSubview: React.FC<NotificationsSubviewProps> = ({
 
   const markAllAsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+    notificationService.markAllAsRead().catch(() => {});
   };
 
   const toggleReadStatus = (id: number) => {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, unread: !n.unread } : n))
     );
+    const notification = notifications.find((item) => item.id === id);
+    if (notification && notification.unread) {
+      notificationService.markAsRead(id).catch(() => {});
+    }
   };
 
   const filteredNotifications = notifications.filter((n) => {

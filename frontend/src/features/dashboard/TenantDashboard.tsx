@@ -71,12 +71,12 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const userIntent = user?.intent || localStorage.getItem('user_intent');
-  const canFindRoommates = userIntent === 'both';
+  const canFindRoommates = user?.role === 'TENANT' || userIntent === 'both';
   const [activeNav, setActiveNav] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
     const sec = params.get('section');
     const storedIntent = localStorage.getItem('user_intent');
-    if (sec === 'roommates' && storedIntent !== 'both') return 'dashboard';
+    if (sec === 'roommates' && storedIntent !== 'both' && user?.role !== 'TENANT') return 'dashboard';
     if (sec) return sec;
     if (initialNav) return initialNav;
     return 'dashboard';
@@ -142,10 +142,16 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
     };
 
     fetchDashboardTelemetry();
+
+    const refreshOnFocus = () => {
+      fetchDashboardTelemetry();
+    };
+    window.addEventListener('focus', refreshOnFocus);
     return () => {
       isMounted = false;
+      window.removeEventListener('focus', refreshOnFocus);
     };
-  }, []);
+  }, [activeNav]);
 
   const activeLease = leases.find((l) => l.status === 'ACTIVE') || leases[0];
   const pendingRentPayment = activeLease?.next_payment || (() => {

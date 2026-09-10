@@ -551,7 +551,11 @@ export const RoommateDiscoveryView: React.FC<RoommateDiscoveryViewProps> = ({ on
                   const isPending = pendingIds.has(r.id) || r.isPending;
 
                   return (
-                    <div key={r.id} className="roommate-candidate-card group">
+                    <div
+                      key={r.id}
+                      onClick={() => setSelectedProfile(r)}
+                      className="roommate-candidate-card group cursor-pointer"
+                    >
                       {/* Photo with Overlay Badges */}
                       <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
                         <img
@@ -634,7 +638,10 @@ export const RoommateDiscoveryView: React.FC<RoommateDiscoveryViewProps> = ({ on
                         <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                           <button
                             type="button"
-                            onClick={() => handlePass(r.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePass(r.id);
+                            }}
                             className="py-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-xs flex items-center justify-center gap-1 transition"
                           >
                             <X className="w-3 h-3" /> Pass
@@ -643,7 +650,10 @@ export const RoommateDiscoveryView: React.FC<RoommateDiscoveryViewProps> = ({ on
                           <button
                             type="button"
                             disabled={isConnected || isPending}
-                            onClick={() => handleConnect(r.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleConnect(r.id);
+                            }}
                             className={`py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-xs ${
                               isConnected
                                 ? 'bg-emerald-600 text-white'

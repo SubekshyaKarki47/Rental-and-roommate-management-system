@@ -30,6 +30,7 @@ import { CreateListingModal } from '../properties/CreateListingModal';
 import { propertyService } from '../../services/propertyService';
 import { applicationService } from '../../services/applicationService';
 import { maintenanceService } from '../../services/maintenanceService';
+import { agreementService, type RentalAgreement } from '../../services/agreementService';
 import { api } from '../../services/api';
 import type { Property } from '../../types/property';
 import './LandlordDashboard.css';
@@ -175,6 +176,8 @@ export const LandlordDashboard: React.FC<LandlordDashboardProps> = ({
   const [activeNav, setActiveNav] = useState<'properties' | 'applications' | 'rent' | 'maintenance' | 'agreements' | 'messages' | 'settings'>('properties');
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [agreements, setAgreements] = useState<RentalAgreement[]>([]);
+  const [agreementsLoading, setAgreementsLoading] = useState(false);
 
   // Modals state
   const [showCreateListing, setShowCreateListing] = useState(false);
@@ -312,7 +315,7 @@ export const LandlordDashboard: React.FC<LandlordDashboardProps> = ({
             category: t.category,
             status: t.status === 'SUBMITTED' ? 'OPEN' : (t.status as any),
             date: new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-            assignedTo: 'Unassigned',
+            assignedTo: t.assigned_technician || 'Unassigned',
           }));
           setTickets((prev) => {
             const mapById = new Map<number, MaintenanceTicket>();
@@ -320,7 +323,12 @@ export const LandlordDashboard: React.FC<LandlordDashboardProps> = ({
             mapped.forEach((item) => {
               if (mapById.has(item.id)) {
                 const existing = mapById.get(item.id)!;
-                mapById.set(item.id, { ...item, assignedTo: existing.assignedTo || item.assignedTo });
+                mapById.set(item.id, {
+                  ...item,
+                  assignedTo: existing.assignedTo && existing.assignedTo !== 'Unassigned'
+                    ? existing.assignedTo
+                    : item.assignedTo,
+                });
               } else {
                 mapById.set(item.id, item);
               }
@@ -344,6 +352,21 @@ export const LandlordDashboard: React.FC<LandlordDashboardProps> = ({
       window.removeEventListener('maintenance:updated', handleSync);
       window.removeEventListener('storage', handleSync);
     };
+  }, []);
+
+  useEffect(() => {
+    const fetchAgreements = async () => {
+      setAgreementsLoading(true);
+      try {
+        setAgreements(await agreementService.getAgreements());
+      } catch {
+        setAgreements([]);
+      } finally {
+        setAgreementsLoading(false);
+      }
+    };
+
+    fetchAgreements();
   }, []);
 
   // Landlord Repair Ticket Creation State
@@ -827,13 +850,24 @@ export const LandlordDashboard: React.FC<LandlordDashboardProps> = ({
     showToast('All resolved maintenance tickets cleared!');
   };
 
-  const handleAssignTech = (ticketId: number) => {
+  const handleAssignTech = async (ticketId: number) => {
     const name = window.prompt('Enter Technician Name and Phone (e.g. Ramesh Plumbing +977 9841234567):');
     if (name && name.trim()) {
-      setTickets((prev) =>
-        prev.map((t) => (t.id === ticketId ? { ...t, assignedTo: name.trim(), status: 'IN_PROGRESS' } : t))
-      );
-      showToast(`Technician assigned to Ticket #${ticketId}!`);
+      const assignedTo = name.trim();
+      setTickets((prev) => {
+        const updated = prev.map((t) => (t.id === ticketId ? { ...t, assignedTo, status: 'IN_PROGRESS' } : t));
+        localStorage.setItem('landlord_tickets', JSON.stringify(updated));
+        return updated;
+      });
+      try {
+        await maintenanceService.updateTicketStatus(ticketId, {
+          status: 'IN_PROGRESS',
+          assigned_technician: assignedTo,
+        });
+        showToast(`Technician ${assignedTo} assigned to Ticket #${ticketId}.`);
+      } catch {
+        showToast('Technician assignment could not be saved.');
+      }
     }
   };
 
@@ -877,56 +911,23 @@ export const LandlordDashboard: React.FC<LandlordDashboardProps> = ({
     showToast(`Repair request logged for ${unitName}!`);
   };
 
-  // Agreement Print Handler
-  const handleDownloadAgreement = (title: string, tenant: string) => {
+  // Open the backend-rendered agreement so printing uses live legal data.
+  const handleDownloadAgreement = async (agreementId: number) => {
     const win = window.open('', '_blank');
-    if (win) {
-      win.document.write(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>${title}</title>
-            <style>
-              body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; color: #1e293b; max-width: 750px; margin: 0 auto; line-height: 1.6; }
-              h1 { color: #ea580c; border-bottom: 2px solid #ea580c; padding-bottom: 8px; font-size: 22px; }
-              h3 { font-size: 16px; margin-top: 20px; color: #334155; }
-              .box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; margin-top: 12px; }
-              .sign { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 20px; border-top: 1px dashed #cbd5e1; }
-            </style>
-          </head>
-          <body>
-            <h1>RESIDENTIAL TENANCY LEASE AGREEMENT</h1>
-            <p><strong>Agreement Reference:</strong> ${title}</p>
-            <div class="box">
-              <p><strong>Property Owner (Landlord):</strong> ${userDisplayName} (${user?.email || 'owner@example.com'})</p>
-              <p><strong>Tenant:</strong> ${tenant}</p>
-              <p><strong>Premises:</strong> Modern 2BHK Apartment, Shantinagar, Baneshwor, Kathmandu</p>
-              <p><strong>Monthly Rent:</strong> Rs. 25,000</p>
-              <p><strong>Security Deposit:</strong> Rs. 25,000 (Refundable upon checkout inspection)</p>
-              <p><strong>Lease Duration:</strong> 1 Year (Through October 2027)</p>
-            </div>
-            <h3>Key Clauses & Terms</h3>
-            <ol>
-              <li>The tenant shall pay monthly rent on or before the 1st of every calendar month.</li>
-              <li>Water, electricity, and backup utilities are supplied according to community meters.</li>
-              <li>Notice period for lease termination by either party is thirty (30) days in advance.</li>
-              <li>Premises must be maintained in good cleanliness and habitable order.</li>
-            </ol>
-            <div class="sign">
-              <div>
-                <p><strong>Landlord Signature:</strong></p>
-                <p>✓ <em>${userDisplayName} (Digitally Certified)</em></p>
-              </div>
-              <div>
-                <p><strong>Tenant Signature:</strong></p>
-                <p>✓ <em>${tenant} (Digitally Certified)</em></p>
-              </div>
-            </div>
-          </body>
-        </html>
-      `);
+    if (!win) return;
+
+    try {
+      const response = await api.get<string>(agreementService.getHtmlUrl(agreementId), {
+        responseType: 'text',
+      });
+      win.document.open();
+      win.document.write(response.data);
       win.document.close();
-      win.print();
+      win.focus();
+      win.onload = () => win.print();
+    } catch {
+      win.close();
+      showToast('Unable to load the agreement for printing.');
     }
   };
 
@@ -956,6 +957,17 @@ export const LandlordDashboard: React.FC<LandlordDashboardProps> = ({
     { id: 'messages', label: 'Tenant Messages', icon: MessageSquare },
     { id: 'settings', label: 'Payout & Settings', icon: Settings },
   ];
+
+  const visibleApplications = applications.filter((application) => {
+    const applicationPropertyId = application.propertyId || application.property_details?.id;
+    const hasExecutedAgreement = agreements.some(
+      (agreement) =>
+        agreement.status === 'EXECUTED' &&
+        agreement.property === applicationPropertyId &&
+        agreement.tenant.email === application.email
+    );
+    return !hasExecutedAgreement;
+  });
 
   return (
     <div className="landlord-dash-container">
@@ -1410,7 +1422,7 @@ export const LandlordDashboard: React.FC<LandlordDashboardProps> = ({
               </div>
 
               <div className="space-y-4">
-                {applications.map((app) => (
+                {visibleApplications.map((app) => (
                   <div
                     key={app.id}
                     className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4"
@@ -1757,28 +1769,34 @@ export const LandlordDashboard: React.FC<LandlordDashboardProps> = ({
                 </div>
               </div>
 
-              <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h4 className="font-bold text-sm text-slate-900 dark:text-white">
-                    Standard Residential Tenancy Agreement #201
-                  </h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Tenant: Subekshya Karki • Rent: Rs. 25,000/mo
-                  </p>
-                  <span className="text-[10px] text-emerald-600 font-bold mt-1 inline-block">
-                    ✓ Both Parties Digitally Signed
-                  </span>
+              {agreementsLoading ? (
+                <div className="p-8 text-center text-xs text-slate-500">Loading agreements...</div>
+              ) : agreements.length === 0 ? (
+                <div className="p-8 text-center text-xs text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl">
+                  No agreements have been created yet.
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleDownloadAgreement('Standard Residential Tenancy Agreement #201', 'Subekshya Karki')}
-                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Print / PDF</span>
-                  </button>
-                </div>
-              </div>
+              ) : (
+                agreements.map((agreement) => (
+                  <div key={agreement.id} className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <h4 className="font-bold text-sm text-slate-900 dark:text-white">{agreement.title}</h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Tenant: {agreement.tenant.full_name} • Rent: Rs. {Number(agreement.monthly_rent).toLocaleString()}/mo
+                      </p>
+                      <span className={`text-[10px] font-bold mt-1 inline-block ${agreement.status === 'EXECUTED' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        {agreement.status === 'EXECUTED' ? 'Both Parties Digitally Signed' : 'Awaiting Tenant Signature'}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleDownloadAgreement(agreement.id)}
+                      className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Print / PDF</span>
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           )}
 

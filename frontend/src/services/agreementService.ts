@@ -48,8 +48,8 @@ export interface RentalAgreement {
 
 export const agreementService = {
   async getAgreements(): Promise<RentalAgreement[]> {
-    const res = await api.get<RentalAgreement[]>('/api/agreements/');
-    return res.data;
+    const res = await api.get<RentalAgreement[] | { results: RentalAgreement[] }>('/api/agreements/');
+    return Array.isArray(res.data) ? res.data : res.data.results || [];
   },
 
   async getAgreement(id: number): Promise<RentalAgreement> {
@@ -77,7 +77,7 @@ export const agreementService = {
   },
 
   getHtmlUrl(id: number): string {
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const baseUrl = import.meta.env.VITE_API_URL || '';
     return `${baseUrl}/api/agreements/${id}/html/`;
   },
 };
