@@ -404,6 +404,16 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
             </button>
 
             <button
+              onClick={() => handleNav('rentals')}
+              className={`tenant-nav-item ${activeNav === 'rentals' ? 'active' : ''}`}
+            >
+              <div className="tenant-nav-left">
+                <Home className="w-4 h-4" />
+                <span>My Rental</span>
+              </div>
+            </button>
+
+            <button
               onClick={() => handleNav('properties')}
               className={`tenant-nav-item ${activeNav === 'properties' ? 'active' : ''}`}
             >
@@ -826,6 +836,103 @@ export const TenantDashboard: React.FC<TenantDashboardProps> = ({
               </div>
 
 
+
+              {/* ================================================================= */}
+              {/* 5b. MY CURRENT RENTAL CARD                                        */}
+              {/* ================================================================= */}
+              <div className="my-rental-card">
+                <div className="my-rental-card-header">
+                  <h3 className="my-rental-card-title">
+                    <Building className="w-4 h-4 text-blue-600" />
+                    <span>My Current Rental</span>
+                  </h3>
+                  {activeLease ? (
+                    <span className="my-rental-active-badge">Active</span>
+                  ) : null}
+                </div>
+
+                {activeLease ? (
+                  <>
+                    <div className="my-rental-property-row">
+                      <div className="my-rental-img-wrap">
+                        {activeLease.property_details?.primary_image ? (
+                          <img
+                            src={activeLease.property_details.primary_image}
+                            alt={activeLease.property_details.title}
+                            className="my-rental-property-img"
+                          />
+                        ) : (
+                          <div className="my-rental-img-placeholder">
+                            <Building className="w-8 h-8 text-slate-300" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="my-rental-property-info">
+                        <h4 className="my-rental-property-name">
+                          {activeLease.property_details?.title || 'My Rental Property'}
+                          {activeLease.room_number && (
+                            <span className="my-rental-room-tag">– Unit {activeLease.room_number}</span>
+                          )}
+                        </h4>
+                        <p className="my-rental-property-address">
+                          {activeLease.property_details?.area}, {activeLease.property_details?.city}
+                        </p>
+                        <div className="my-rental-amenities-row">
+                          <span>🏠 Studio</span>
+                          <span>🚿 1 Bath</span>
+                          <span>📐 {activeLease.property_details?.monthly_rent ? `Rs. ${activeLease.property_details.monthly_rent.toLocaleString()}/mo` : 'N/A'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="my-rental-divider" />
+
+                    <div className="my-rental-meta-row">
+                      <div className="my-rental-meta-item">
+                        <span className="my-rental-meta-label">LANDLORD</span>
+                        <span className="my-rental-meta-value">{activeLease.landlord?.full_name || '—'}</span>
+                      </div>
+                      <div className="my-rental-meta-item">
+                        <span className="my-rental-meta-label">LEASE START</span>
+                        <span className="my-rental-meta-value">
+                          {activeLease.start_date
+                            ? new Date(activeLease.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                            : '—'}
+                        </span>
+                      </div>
+                      <div className="my-rental-meta-item">
+                        <span className="my-rental-meta-label">LEASE END</span>
+                        <span className="my-rental-meta-value">
+                          {activeLease.end_date
+                            ? new Date(activeLease.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                            : '—'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleNav('rentals')}
+                      className="my-rental-view-btn"
+                    >
+                      <CreditCard className="w-4 h-4" />
+                      <span>View My Rental</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </>
+                ) : (
+                  <div className="my-rental-empty-state">
+                    <Building className="w-10 h-10 text-slate-300 mb-2" />
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">No Active Rental</p>
+                    <p className="text-xs text-slate-400 mt-0.5">You don't have an active lease yet. Browse properties to get started.</p>
+                    <button
+                      onClick={() => handleNav('properties')}
+                      className="my-rental-find-btn"
+                    >
+                      Find a Property
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* ================================================================= */}
               {/* 6. RECOMMENDED PROPERTIES (3 Cards Replica)                       */}

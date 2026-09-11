@@ -14,6 +14,9 @@ import {
   Plus,
   MapPin,
   TrendingUp,
+  TrendingDown,
+  Users,
+  BarChart3,
   Menu,
   X,
   CheckCircle2,
@@ -22,6 +25,7 @@ import {
   Trash2,
   Receipt,
   Bell,
+  ArrowRight,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -173,7 +177,9 @@ export const LandlordDashboard: React.FC<LandlordDashboardProps> = ({
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
-  const [activeNav, setActiveNav] = useState<'properties' | 'applications' | 'rent' | 'maintenance' | 'agreements' | 'messages' | 'settings'>('properties');
+  const [activeNav, setActiveNav] = useState<'dashboard' | 'properties' | 'applications' | 'rent' | 'maintenance' | 'agreements' | 'messages' | 'settings'>('dashboard');
+  const [revenueView, setRevenueView] = useState<'monthly' | 'quarterly'>('monthly');
+  const [tenantFilter, setTenantFilter] = useState<'all' | 'current' | 'late'>('all');
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [agreements, setAgreements] = useState<RentalAgreement[]>([]);
@@ -943,6 +949,7 @@ export const LandlordDashboard: React.FC<LandlordDashboardProps> = ({
   };
 
   const navItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'properties', label: 'My Properties', icon: Home, badge: properties.length },
     {
       id: 'applications',
@@ -957,6 +964,52 @@ export const LandlordDashboard: React.FC<LandlordDashboardProps> = ({
     { id: 'messages', label: 'Tenant Messages', icon: MessageSquare },
     { id: 'settings', label: 'Payout & Settings', icon: Settings },
   ];
+
+  // Dashboard computed values
+  const monthlyIncome = properties.reduce((sum, p) => (p.status === 'OCCUPIED' ? sum + Number(p.rent) : sum), 0);
+  const occupiedCount = properties.filter((p) => p.status === 'OCCUPIED').length;
+  const vacantCount = properties.filter((p) => p.status === 'VACANT').length;
+  const pendingAppsCount = applications.filter((a) => a.status === 'PENDING').length;
+  const openTicketsCount = tickets.filter((t) => t.status !== 'RESOLVED').length;
+
+  // Revenue chart data (monthly last 6 months)
+  const monthlyRevData = [
+    { label: 'Apr', value: monthlyIncome * 0.92 },
+    { label: 'May', value: monthlyIncome * 0.92 },
+    { label: 'Jun', value: monthlyIncome },
+    { label: 'Jul', value: monthlyIncome },
+    { label: 'Aug', value: monthlyIncome },
+    { label: 'Sep', value: monthlyIncome },
+  ];
+  const quarterlyRevData = [
+    { label: 'Q1 2026', value: monthlyIncome * 0.92 * 3 },
+    { label: 'Q2 2026', value: monthlyIncome * 2.95 },
+    { label: 'Q3 2026', value: monthlyIncome * 3 },
+  ];
+  const revData = revenueView === 'monthly' ? monthlyRevData : quarterlyRevData;
+  const revMax = Math.max(...revData.map((d) => d.value), 1);
+  const totalYTD = revData.reduce((s, d) => s + d.value, 0);
+  const avgMonthly = monthlyIncome;
+
+  // Tenant roster for dashboard table
+  const tenantRoster = properties
+    .filter((p) => p.status === 'OCCUPIED' && p.tenantName && p.tenantName !== 'None')
+    .map((p, idx) => ({
+      id: p.id,
+      name: p.tenantName,
+      unit: `${String.fromCharCode(65 + idx)}1 – ${p.title.split(' ').slice(0, 3).join(' ')}`,
+      lease: p.leaseExpiry,
+      rent: p.rent,
+      payment: rentPayments.find((r) => r.property.toLowerCase().includes(p.tenantName.toLowerCase()))?.status || 'PENDING',
+      status: 'Current',
+      image: `https://images.unsplash.com/photo-${idx === 0 ? '1539571696357-5a69c17a67c6' : idx === 1 ? '1494790108377-be9c29b29330' : '1500648767791-00dcc994a43e'}?w=80&auto=format&fit=crop&q=80`,
+    }));
+
+  const filteredTenants = tenantRoster.filter((t) => {
+    if (tenantFilter === 'current') return t.payment === 'PAID';
+    if (tenantFilter === 'late') return t.payment === 'OVERDUE' || t.payment === 'PENDING';
+    return true;
+  });
 
   const visibleApplications = applications.filter((application) => {
     const applicationPropertyId = application.propertyId || application.property_details?.id;
@@ -1269,6 +1322,253 @@ export const LandlordDashboard: React.FC<LandlordDashboardProps> = ({
 
         {/* 3. SCROLLABLE WORKSPACE BODY */}
         <div className="landlord-dash-body">
+
+          {/* =====================================================================
+              SUBVIEW 0: DASHBOARD OVERVIEW
+             ===================================================================== */}
+          {activeNav === 'dashboard' && (
+            <div className="ld-dashboard-view animate-fadeIn">
+
+              {/* ---- KPI STATS ROW ---- */}
+              <div className="ld-kpi-grid">
+                {/* Monthly Rental Income */}
+                <div className="ld-kpi-card">
+                  <span className="ld-kpi-label">MONTHLY RENTAL INCOME</span>
+                  <p className="ld-kpi-value">
+                    Rs. {monthlyIncome.toLocaleString()}
+                  </p>
+                  <span className="ld-kpi-sub text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <TrendingUp className="w-3 h-3" /> 100% on-time this month
+                  </span>
+                </div>
+
+                {/* Total Properties */}
+                <div className="ld-kpi-card">
+                  <span className="ld-kpi-label">TOTAL PROPERTIES</span>
+                  <p className="ld-kpi-value">{properties.length} Units</p>
+                  <span className="ld-kpi-sub">
+                    {occupiedCount} Occupied, {vacantCount} Vacant
+                  </span>
+                </div>
+
+                {/* Pending Applications */}
+                <div className="ld-kpi-card">
+                  <span className="ld-kpi-label">PENDING APPLICATIONS</span>
+                  <p className="ld-kpi-value text-amber-600">{pendingAppsCount}</p>
+                  <button
+                    onClick={() => setActiveNav('applications')}
+                    className="ld-kpi-link text-amber-600 dark:text-amber-400"
+                  >
+                    Review applicants →
+                  </button>
+                </div>
+
+                {/* Open Maintenance */}
+                <div className="ld-kpi-card">
+                  <span className="ld-kpi-label">OPEN MAINTENANCE</span>
+                  <p className="ld-kpi-value text-blue-600">{openTicketsCount} Active</p>
+                  <button
+                    onClick={() => setActiveNav('maintenance')}
+                    className="ld-kpi-link text-blue-600 dark:text-blue-400"
+                  >
+                    Dispatch technicians →
+                  </button>
+                </div>
+              </div>
+
+              {/* ---- MAIN CONTENT: CHART + PROPERTIES PANEL ---- */}
+              <div className="ld-dash-main-row">
+
+                {/* Revenue Overview Card */}
+                <div className="ld-revenue-card">
+                  <div className="ld-revenue-header">
+                    <div>
+                      <h3 className="ld-revenue-title">Revenue Overview</h3>
+                      <p className="ld-revenue-sub">Last {revenueView === 'monthly' ? '6 months' : '3 quarters'}</p>
+                    </div>
+                    <div className="ld-rev-toggle">
+                      <button
+                        onClick={() => setRevenueView('monthly')}
+                        className={`ld-rev-toggle-btn ${revenueView === 'monthly' ? 'active' : ''}`}
+                      >
+                        Monthly
+                      </button>
+                      <button
+                        onClick={() => setRevenueView('quarterly')}
+                        className={`ld-rev-toggle-btn ${revenueView === 'quarterly' ? 'active' : ''}`}
+                      >
+                        Quarterly
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Bar Chart */}
+                  <div className="ld-bar-chart">
+                    {revData.map((d, i) => {
+                      const isLast = i === revData.length - 1;
+                      const pct = revMax > 0 ? (d.value / revMax) * 100 : 0;
+                      return (
+                        <div key={d.label} className="ld-bar-col">
+                          <span className="ld-bar-amount">
+                            {d.value >= 1000 ? `Rs.${(d.value / 1000).toFixed(1)}k` : `Rs.${d.value}`}
+                          </span>
+                          <div className="ld-bar-track">
+                            <div
+                              className={`ld-bar-fill ${isLast ? 'active' : ''}`}
+                              style={{ height: `${Math.max(pct, 6)}%` }}
+                            />
+                          </div>
+                          <span className={`ld-bar-label ${isLast ? 'font-bold text-indigo-600' : ''}`}>
+                            {d.label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Summary stats */}
+                  <div className="ld-revenue-stats">
+                    <div className="ld-rev-stat">
+                      <span className="ld-rev-stat-label">Total YTD</span>
+                      <span className="ld-rev-stat-val">Rs. {totalYTD >= 1000 ? `${(totalYTD / 1000).toFixed(1)}k` : totalYTD.toFixed(0)}</span>
+                    </div>
+                    <div className="ld-rev-stat">
+                      <span className="ld-rev-stat-label">Avg Monthly</span>
+                      <span className="ld-rev-stat-val">Rs. {avgMonthly >= 1000 ? `${(avgMonthly / 1000).toFixed(1)}k` : avgMonthly.toLocaleString()}</span>
+                    </div>
+                    <div className="ld-rev-stat">
+                      <span className="ld-rev-stat-label">YoY Growth</span>
+                      <span className="ld-rev-stat-val text-emerald-600">+4.2%</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Properties Summary Panel */}
+                <div className="ld-properties-panel">
+                  <div className="ld-panel-header">
+                    <h3 className="ld-panel-title">Properties</h3>
+                    <button
+                      onClick={() => setActiveNav('properties')}
+                      className="ld-panel-link"
+                    >
+                      Manage →
+                    </button>
+                  </div>
+
+                  <div className="ld-prop-list">
+                    {properties.slice(0, 4).map((p, idx) => {
+                      const colors = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444'];
+                      const occupancyPct = p.status === 'OCCUPIED' ? 100 : 50;
+                      return (
+                        <div key={p.id} className="ld-prop-row">
+                          <img
+                            src={p.image}
+                            alt={p.title}
+                            className="ld-prop-thumb"
+                          />
+                          <div className="ld-prop-info">
+                            <h4 className="ld-prop-name">{p.title.split(' ').slice(0, 4).join(' ')}</h4>
+                            <p className="ld-prop-loc">{p.city}, {p.area.split(',')[0]}</p>
+                            <div className="ld-prop-bar-row">
+                              <div className="ld-prop-bar-track">
+                                <div
+                                  className="ld-prop-bar-fill"
+                                  style={{ width: `${occupancyPct}%`, backgroundColor: colors[idx % colors.length] }}
+                                />
+                              </div>
+                              <span className="ld-prop-units">
+                                {p.status === 'OCCUPIED' ? '1/1' : '0/1'} units
+                              </span>
+                            </div>
+                          </div>
+                          <span className="ld-prop-rent">
+                            Rs. {p.rent.toLocaleString()}/mo
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {properties.length === 0 && (
+                      <div className="py-8 text-center text-slate-400 text-sm">
+                        <Building className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                        No properties yet.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* ---- TENANTS TABLE ---- */}
+              <div className="ld-tenants-card">
+                <div className="ld-tenants-header">
+                  <h3 className="ld-tenants-title">Tenants</h3>
+                  <div className="ld-tenant-filter">
+                    {(['all', 'current', 'late'] as const).map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => setTenantFilter(f)}
+                        className={`ld-tenant-filter-btn ${tenantFilter === f ? 'active' : ''}`}
+                      >
+                        {f.charAt(0).toUpperCase() + f.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="ld-tenant-table-wrap">
+                  <table className="ld-tenant-table">
+                    <thead>
+                      <tr>
+                        <th>TENANT</th>
+                        <th>UNIT</th>
+                        <th>LEASE</th>
+                        <th>RENT</th>
+                        <th>SEP PAYMENT</th>
+                        <th>STATUS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredTenants.length > 0 ? filteredTenants.map((t) => (
+                        <tr key={t.id} className="ld-tenant-row">
+                          <td>
+                            <div className="ld-tenant-name-cell">
+                              <img src={t.image} alt={t.name} className="ld-tenant-avatar" />
+                              <span className="ld-tenant-name">{t.name}</span>
+                            </div>
+                          </td>
+                          <td className="ld-tenant-unit">{t.unit}</td>
+                          <td className="ld-tenant-lease">{t.lease}</td>
+                          <td className="ld-tenant-rent">Rs. {t.rent.toLocaleString()}</td>
+                          <td>
+                            <span className={`ld-pay-badge ${
+                              t.payment === 'PAID' ? 'paid' : t.payment === 'OVERDUE' ? 'late' : 'pending'
+                            }`}>
+                              {t.payment === 'PAID' ? 'Paid' : t.payment === 'OVERDUE' ? 'Late' : 'Pending'}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`ld-status-badge ${
+                              t.payment === 'PAID' ? 'current' : 'late'
+                            }`}>
+                              {t.payment === 'PAID' ? 'Current' : 'Late'}
+                            </span>
+                          </td>
+                        </tr>
+                      )) : (
+                        <tr>
+                          <td colSpan={6} className="py-10 text-center text-slate-400 text-sm">
+                            <Users className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                            No tenants match this filter.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          )}
+
           {/* Subview 1: Properties & Units */}
           {activeNav === 'properties' && (
             <div className="max-w-5xl mx-auto space-y-6 animate-fadeIn">
