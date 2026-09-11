@@ -14,7 +14,6 @@ import {
   Plus,
   MapPin,
   TrendingUp,
-  TrendingDown,
   Users,
   BarChart3,
   Menu,
@@ -25,7 +24,6 @@ import {
   Trash2,
   Receipt,
   Bell,
-  ArrowRight,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
