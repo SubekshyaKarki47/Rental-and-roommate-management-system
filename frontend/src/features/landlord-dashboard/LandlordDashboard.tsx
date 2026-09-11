@@ -433,7 +433,7 @@ export const LandlordDashboard: React.FC<LandlordDashboardProps> = ({
               title: p.title,
               city: p.city,
               area: p.area,
-              rent: p.monthly_rent,
+              rent: Number(p.monthly_rent) || 0,
               bedrooms: p.bedrooms,
               bathrooms: p.bathrooms,
               status: isRented ? 'OCCUPIED' : 'VACANT',
@@ -483,7 +483,7 @@ export const LandlordDashboard: React.FC<LandlordDashboardProps> = ({
       title: newProp.title,
       city: newProp.city,
       area: newProp.area,
-      rent: newProp.monthly_rent,
+      rent: Number(newProp.monthly_rent) || 0,
       bedrooms: newProp.bedrooms,
       bathrooms: newProp.bathrooms,
       status: 'VACANT',
@@ -1277,7 +1277,7 @@ export const LandlordDashboard: React.FC<LandlordDashboardProps> = ({
                 <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
                   <span className="text-[11px] font-bold text-slate-400 uppercase">Monthly Rental Income</span>
                   <p className="text-xl font-black text-slate-900 dark:text-white mt-1">
-                    Rs. {properties.reduce((sum, p) => (p.status === 'OCCUPIED' ? sum + p.rent : sum), 0).toLocaleString()}
+                    Rs. {properties.reduce((sum, p) => (p.status === 'OCCUPIED' ? sum + Number(p.rent) : sum), 0).toLocaleString()}
                   </p>
                   <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1 mt-1">
                     <TrendingUp className="w-3 h-3" /> 100% on-time this month
